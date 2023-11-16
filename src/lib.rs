@@ -6,6 +6,7 @@
 //! - idents are not properly validated
 //! - idents cannot end with "-", double minus ("--") is only allowed at start and single minus only in middle of ident.
 //! So token stream like "-- foo - a" and "--foo-a" both parsed as "--foo-a" ident.
+//! - Can't distinguish between ".foo.bar" and ".foo .bar" selector.
 //! - URL, CDO, CDC tokens are not supported.
 //! - Maybe something else.
 
@@ -269,7 +270,7 @@ mod primitive_tokens {
 #[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
 pub enum IdentFragment {
     #[parse(peek = Ident::peek_any)]
-    Ident(Ident),
+    Ident(#[parse(IdentExt::parse_any)]Ident),
     #[parse(peek = Token![-])]
     Minus(Token![-]),
     Digit(LitInt),
@@ -470,10 +471,32 @@ pub enum SelectorsFragment {
     Operation(SelectorOp)
 } 
 impl SelectorsFragment {
+    fn add_spaces(fragments: Vec<Self>) -> Vec<Self> {
+        // dbg!(&fragments);
+
+        dbg!(&fragments[0].span().end());
+        let mut new_fragments = vec![];
+        for chunk in fragments.windows(2) {
+
+            dbg!(&chunk[0].span().end());
+            new_fragments.push(chunk[0].clone());
+            match chunk {
+                [SelectorsFragment::Selector(_), SelectorsFragment::Selector(_)] => {
+                    new_fragments.push(SelectorsFragment::Operation(SelectorOp::Descendant()))
+                }
+                _ => {}
+            }
+        }
+        if let Some(v) = fragments.last() {
+            new_fragments.push(v.clone())
+        }
+        new_fragments
+    }
     fn parse_array_until_block(input: ParseStream) -> syn::Result<Vec<Self>> {
         let result = parse_array_terminated(input, 
             |p| p.peek(Brace) || p.peek(Token![;] ))?;
         let mut new_results = vec![];
+        // add 
         for res in result {
             match res {
                 SelectorsFragment::Selector(Selector::Class { token_dot, ident }) => {
@@ -519,7 +542,8 @@ impl SelectorsFragment {
                 res => new_results.push(res)
             }
         }
-        Ok(new_results)
+        
+        Ok(Self::add_spaces(new_results))
     }
 }
 
@@ -571,6 +595,19 @@ pub struct StyleSheet {
 pub fn parse2(tokens: TokenStream) -> syn::Result<StyleSheet> {
     syn::parse2(tokens)
 }
+
+pub fn parse2_with_macro_call(tokens: TokenStream) -> syn::Result<StyleSheet> {
+    let mut tokens = tokens.into_iter();
+    tokens.next(); // css
+    tokens.next(); // ! 
+    // { .. }
+    if let Some(TokenTree::Group(g)) = tokens.next() {
+        syn::parse2(g.stream())
+    } else {
+        panic!()
+    }
+}
+
 
 
 impl Display for CssIdent {
@@ -705,7 +742,7 @@ impl Display for SelectorOp {
             SelectorOp::Namespace(_) => write!(f, "|"),
             SelectorOp::NextSibling(_) => write!(f, "+"),
             SelectorOp::SubSequent(_) => write!(f, "~"),
-            SelectorOp::Descendant() => Ok(()),
+            SelectorOp::Descendant() => write!(f, " "),
         }
     }
 }
@@ -735,9 +772,9 @@ impl Display for SelectorsFragment {
 impl Display for QRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for selector in &self.selectors{
-            write!(f, "{} ", selector)?;
+            write!(f, "{}", selector)?;
         }
-        write!(f, "{}", self.block)
+        write!(f, " {}", self.block)
     }
 }
 
@@ -878,5 +915,45 @@ x: y;
         let style = parse2(css).unwrap();
 
         assert_eq!(style.to_string(), css_str);
+    }
+
+
+    #[test] 
+    fn stylers_example() {
+        let css_str = 
+        r##"button {
+            background-color: green;
+            border-radius: 8px;
+            border-style: none;
+            box-sizing: border-box;
+            color: yellow;
+            cursor: pointer;
+            display: inline-block;
+            font-family: r#"Haas Grot Text R Web"#, r#"Helvetica Neue"#, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            height: 40px;
+            line-height: 20px;
+            list-style: none;
+            margin: 0;
+            outline: none;
+            padding: 10px 16px;
+            position: relative;
+            text-align: center;
+            text-decoration: none;
+            transition: color 100ms;
+            vertical-align: baseline;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        button:hover {
+            background-color: yellow;
+            color: green;
+        }
+        "##;
+                let css = TokenStream::from_str(css_str).unwrap();
+                let style = parse2(css).unwrap();
+                dbg!(&style);
+        
     }
 }

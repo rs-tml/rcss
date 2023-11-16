@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./examples/tested-macro/Cargo.toml",
+        "./examples/shared_lib/Cargo.toml"
+    ]
+}
