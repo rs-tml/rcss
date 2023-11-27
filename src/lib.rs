@@ -1,5 +1,5 @@
 //! Based on https://www.w3.org/TR/css-syntax-3 and https://developer.mozilla.org/en-US/docs/Web/CSS/Syntax
-//! 
+//!
 //! With `TokenStream`` limitations:
 //! - no comments/new lines/whitespaces are represented in parsed result.
 //! - non ascii characters allowed only inside strings, and limited to utf8.
@@ -12,24 +12,36 @@
 
 use std::fmt::Display;
 
-use primitive_tokens::{Value, Dimension, Number, DotNumber, Sign, Function, PercentToken, StringToken};
-use proc_macro2::{Ident, TokenStream, TokenTree};
-use syn::{ext::IdentExt, Token, LitInt, token::{Brace, Paren}, parse::{Parse, discouraged::Speculative, ParseStream}, spanned::Spanned};
+use primitive_tokens::{
+    Dimension, DotNumber, Function, Number, PercentToken, Sign, StringToken, Value,
+};
+use proc_macro2::{Ident, Punct, TokenStream, TokenTree};
 use quote::TokenStreamExt;
+use syn::{
+    ext::IdentExt,
+    parse::{discouraged::Speculative, Parse, ParseStream},
+    spanned::Spanned,
+    token::{Brace, Bracket, Paren},
+    LitInt, Token,
+};
 
 mod primitive_tokens {
     use proc_macro2::{Literal, TokenStream};
-    use syn::{Token, LitInt, token::{Paren, Brace}, parse::{Parse, discouraged::Speculative, ParseStream}, Error, spanned::Spanned};
+    use syn::{
+        parse::{discouraged::Speculative, Parse, ParseStream},
+        spanned::Spanned,
+        token::{Brace, Paren},
+        Error, LitInt, LitStr, Token,
+    };
 
-    use crate::{CssIdent, parse_tts_until_block, parse_array_terminated};
-
+    use crate::{parse_array_terminated, parse_tts_until_block, CssIdent};
 
     #[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
     pub struct HashToken {
         pub token_hash: Token![#],
         pub ident: CssIdent,
     }
-    
+
     // #[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
     // enum HexDigits {
     //     #[parse(peek=LitInt)]
@@ -47,25 +59,21 @@ mod primitive_tokens {
     //         }).next().is_some()
     //     }
     // }
-    
+
     // Single or double quoted text.
-    #[derive(Clone, Debug, syn_derive::ToTokens )]
+    #[derive(Clone, Debug, syn_derive::ToTokens)]
     pub struct StringToken {
-        pub literal: Literal,
+        pub literal: LitStr,
     }
     impl Parse for StringToken {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let literal: Literal = input.parse()?;
-            let repr = literal.to_string();
-            match repr.chars().nth(0) {
-                Some('\'') | Some('\"') => {},
-                _ => {
-                    return Err(Error::new(literal.span(), "Expected string literal"))
-                }
-            }
-            Ok(StringToken {
-                literal
-            })
+            let literal: LitStr = input.parse()?;
+            // let repr = literal.to_string();
+            // match repr.chars().nth(0) {
+            //     Some('\'') | Some('\"') => {}
+            //     _ => return Err(Error::new(literal.span(), "Expected string literal")),
+            // }
+            Ok(StringToken { literal })
         }
     }
 
@@ -74,7 +82,7 @@ mod primitive_tokens {
         #[parse(peek = Token![-])]
         Minus(Token![-]),
         #[parse(peek = Token![+])]
-        Plus(Token![+])
+        Plus(Token![+]),
     }
 
     #[derive(Clone, Debug, syn_derive::ToTokens)]
@@ -91,29 +99,29 @@ mod primitive_tokens {
         pub number: LitInt,
         #[to_tokens(|_,_| ())]
         pub e_suffix: String,
-
     }
     impl Number {
         fn parse_any_suffix(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let sign_dot = if (input.peek(Token![-]) || input.peek(Token![+])) &&
-                input.peek2(Token![.]) {
-                Some(DotNumber {
-                    token_sign: Some(input.parse()?),
-                    token_dot: input.parse()?,
-                })
-            } else if input.peek(Token![.]){
-                Some(DotNumber {
-                    token_sign: None,
-                    token_dot: input.parse()?
-                })
-            } else {
-                None
-            };
+            let sign_dot =
+                if (input.peek(Token![-]) || input.peek(Token![+])) && input.peek2(Token![.]) {
+                    Some(DotNumber {
+                        token_sign: Some(input.parse()?),
+                        token_dot: input.parse()?,
+                    })
+                } else if input.peek(Token![.]) {
+                    Some(DotNumber {
+                        token_sign: None,
+                        token_dot: input.parse()?,
+                    })
+                } else {
+                    None
+                };
             let number: LitInt = input.parse()?;
             if sign_dot.is_some() && number.to_string().starts_with(".") {
-                return Err(
-                    Error::new(sign_dot.unwrap().span(), "More than one dot in number")
-                )
+                return Err(Error::new(
+                    sign_dot.unwrap().span(),
+                    "More than one dot in number",
+                ));
             }
             let suffix = number.suffix();
             let mut suffix_iter = suffix.chars();
@@ -125,7 +133,7 @@ mod primitive_tokens {
                         if c >= '0' && c <= '9' {
                             e_suffix.push(c);
                         } else {
-                            break
+                            break;
                         }
                     }
                 }
@@ -144,13 +152,11 @@ mod primitive_tokens {
 
     impl Parse for Number {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-           let num = Self::parse_any_suffix(input)?;
-           if !num.suffix().is_empty() {
-                return Err(
-                    Error::new(num.span(), "No suffix in number was expected")
-                )
-           }
-           Ok(num)
+            let num = Self::parse_any_suffix(input)?;
+            if !num.suffix().is_empty() {
+                return Err(Error::new(num.span(), "No suffix in number was expected"));
+            }
+            Ok(num)
         }
     }
     #[derive(Clone, Debug, syn_derive::ToTokens)]
@@ -164,9 +170,7 @@ mod primitive_tokens {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
             let number = Number::parse_any_suffix(input)?;
             let dimension = number.suffix().to_string();
-            Ok(
-                Dimension { number, dimension }
-            )
+            Ok(Dimension { number, dimension })
         }
     }
 
@@ -184,13 +188,15 @@ mod primitive_tokens {
         Dimension(Dimension),
         Ident(CssIdent),
         String(StringToken),
+        Comma(Token![,]),
         Verbatim(TokenStream),
     }
 
-    impl Value  {
+    impl Value {
         pub fn parse_array_until_block_or_colon(input: ParseStream) -> syn::Result<Vec<Self>> {
-            let result = parse_array_terminated(input, 
-                |p| p.peek(Brace) || p.peek(Token![;]) || p.peek(Token![:]  ))?;
+            let result = parse_array_terminated(input, |p| {
+                p.peek(Brace) || p.peek(Token![;]) || p.peek(Token![:])
+            })?;
 
             let mut new_result = vec![];
             for val in result {
@@ -202,54 +208,55 @@ mod primitive_tokens {
                     new_result.push(val)
                 }
             }
-            return Ok(new_result)
-            
+            dbg!(&input);
+            return Ok(new_result);
         }
     }
     impl Parse for Value {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+            if input.peek(Token![,]) {
+                return Ok(Self::Comma(input.parse()?));
+            }
             let fork = input.fork();
             let value = if let Ok(number) = fork.parse() {
                 if input.peek(Token![%]) {
                     Some(Value::Percent(PercentToken {
                         number,
-                        percentage: fork.parse().expect("checked")
+                        percentage: fork.parse().expect("checked"),
                     }))
                 } else {
                     if !number.suffix().is_empty() {
                         Some(Value::Number(number))
                     } else {
                         let dimension = number.suffix().to_string();
-                        Some(Value::Dimension(Dimension {
-                            number, dimension
-                        }))
+                        Some(Value::Dimension(Dimension { number, dimension }))
                     }
-                    
                 }
-            } else { None };
+            } else {
+                None
+            };
 
             if let Some(value) = value {
                 input.advance_to(&fork);
-                return Ok(value)
+                return Ok(value);
             }
             let fork = input.fork();
             if let Ok(v) = fork.parse::<StringToken>() {
                 input.advance_to(&fork);
-                return Ok(Value::String(v))
+                return Ok(Value::String(v));
             }
             let fork = input.fork();
-            if let Ok(ident) =  fork.parse::<CssIdent>() {
+            if let Ok(ident) = fork.parse::<CssIdent>() {
                 if !fork.peek(Paren) {
                     input.advance_to(&fork);
-                    return Ok(Value::Ident(ident))
+                    return Ok(Value::Ident(ident));
                 } else {
-                    if let Ok(func) = input.parse::<Function>(){
-                        return Ok(Value::Function(func))
+                    if let Ok(func) = input.parse::<Function>() {
+                        return Ok(Value::Function(func));
                     }
                 }
             }
             Ok(Value::Verbatim(parse_tts_until_block(input)?))
-            
         }
     }
 
@@ -262,36 +269,62 @@ mod primitive_tokens {
         #[syn(in = paren_token)]
         #[to_tokens(|tokens, val| tokens.append_all(val))]
         #[parse(Value::parse_array_until_block_or_colon)]
-        pub args: Vec<Value>
+        pub args: Vec<Value>,
     }
 }
 
-
-#[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
+#[derive(Clone, Debug, syn_derive::ToTokens)]
 pub enum IdentFragment {
-    #[parse(peek = Ident::peek_any)]
-    Ident(#[parse(IdentExt::parse_any)]Ident),
-    #[parse(peek = Token![-])]
+    Ident(Ident),
     Minus(Token![-]),
     Digit(LitInt),
 }
+impl Parse for IdentFragment {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let res = if input.peek(Ident::peek_any) {
+            Self::Ident(Ident::parse_any(input)?)
+        } else if input.peek(Token![-]) {
+            Self::Minus(input.parse()?)
+        } else if !input.peek(Token![.]) {
+            Self::Digit(input.parse()?)
+        } else {
+            return Err(syn::Error::new(
+                input.span(),
+                "Failed to parse IdentFragment",
+            ));
+        };
+        Ok(res)
+    }
+}
 
-#[derive(Clone, Default, Debug, syn_derive::Parse, syn_derive::ToTokens)]
+#[derive(Clone, Default, Debug, syn_derive::ToTokens)]
 pub struct CssIdent {
     #[to_tokens(|tokens, val| tokens.append_all(val))]
     /// TODO: Better error in case of invalid token
-    #[parse(parse_array_ident)]
-    fragments: Vec<IdentFragment>
+    // USe punctuated instead
+    fragments: Vec<IdentFragment>,
+}
+
+impl Parse for CssIdent {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ident = Self {
+            fragments: parse_array_ident::<IdentFragment>(input)?,
+        };
+        if ident.fragments.is_empty() {
+            return Err(syn::Error::new(input.span(), "Empty css ident"));
+        }
+        Ok(ident)
+    }
 }
 
 impl CssIdent {
     // Is canonical ident for stable rust
-    // returns false if no fragments are present, or latest fragment is minus. 
+    // returns false if no fragments are present, or latest fragment is minus.
     fn is_canonical_stable(&self) -> bool {
         !matches!(self.fragments.last(), None | Some(IdentFragment::Minus(_)))
     }
     // Try to split ident, if there is "--" is present
-    fn split_ident(self) -> syn::Result<Vec<Self>>  {
+    fn split_ident(self) -> syn::Result<Vec<Self>> {
         let mut idents = Vec::new();
         let mut ident = Self::default();
 
@@ -301,7 +334,9 @@ impl CssIdent {
 
         for fragments in self.fragments.windows(2) {
             match fragments {
-                [IdentFragment::Minus(_), IdentFragment::Minus(_)] if ident.is_canonical_stable()  => {
+                [IdentFragment::Minus(_), IdentFragment::Minus(_)]
+                    if ident.is_canonical_stable() =>
+                {
                     idents.push(ident);
                     ident = Self::default();
                 }
@@ -310,55 +345,61 @@ impl CssIdent {
             ident.fragments.push(fragments[0].clone())
         }
         if let Some(fragment) = self.fragments.last() {
-
             ident.fragments.push(fragment.clone())
         }
         if !ident.is_canonical_stable() {
-            return Err(syn::Error::new(ident.span(), "Ident cannot end with '-' "))
+            return Err(syn::Error::new(ident.span(), "Ident cannot end with '-' "));
         }
         idents.push(ident);
 
-        return Ok(idents)
+        return Ok(idents);
     }
 
     fn parse_array(input: ParseStream) -> syn::Result<Vec<Self>> {
         let result: Vec<IdentFragment> = parse_array_ident(input)?;
-        let ident = Self {
-            fragments: result
-        };
+        let ident = Self { fragments: result };
         ident.split_ident()
-
     }
 }
 
-fn parse_array_terminated<T: Parse>(input: ParseStream, terminate: impl Fn(ParseStream) -> bool) -> syn::Result<Vec<T>> {
+fn parse_array_terminated<T: Parse + std::fmt::Debug>(
+    input: ParseStream,
+    terminate: impl Fn(ParseStream) -> bool,
+) -> syn::Result<Vec<T>> {
     let mut fragments = Vec::new();
     while !input.is_empty() {
+        let before = input.cursor();
         if terminate(&input.fork()) {
-            break
+            break;
         }
         let fragment = input.parse()?;
+        dbg!(&fragment);
+        dbg!(std::backtrace::Backtrace::capture());
+        if before == input.cursor() {
+            // dbg!(Selector::parse(input));
+            panic!("{:?}", input);
+        }
         fragments.push(fragment);
     }
     Ok(fragments)
 }
 
-
-fn parse_array_ident<T: Parse>(input: ParseStream) -> syn::Result<Vec<T>> {
-    parse_array_terminated(input, 
-        |p| p.peek(Paren) || p.peek(Brace) || p.peek(Token![;]) || p.peek(Token![:]  ))
+fn parse_array_ident<T: Parse + std::fmt::Debug>(input: ParseStream) -> syn::Result<Vec<T>> {
+    println!("input l:375 = {:?}", &input);
+    parse_array_terminated(input, |p| {
+        !(p.peek(Ident::peek_any) || p.peek(LitInt) || p.peek(Token![-]))
+    })
 }
 fn parse_tts_until_block(input: ParseStream) -> syn::Result<TokenStream> {
     let mut tokens = TokenStream::new();
 
-    let result = parse_array_terminated::<TokenTree>(input, 
-        |p| p.peek(Brace) || p.peek(Token![;] ))?;
+    let result =
+        parse_array_terminated::<TokenTree>(input, |p| p.peek(Brace) || p.peek(Token![;]))?;
     tokens.append_all(result);
     Ok(tokens)
 }
-fn parse_to_eof<T: Parse>(input: ParseStream) -> syn::Result<Vec<T>> {
-    parse_array_terminated(input, 
-        |p| p.is_empty() )
+fn parse_to_eof<T: Parse + std::fmt::Debug>(input: ParseStream) -> syn::Result<Vec<T>> {
+    parse_array_terminated(input, |p| p.is_empty())
 }
 
 #[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
@@ -420,7 +461,7 @@ pub struct SelectorArgs {
     #[syn(in= paren_token)]
     #[to_tokens(|tokens, val| tokens.append_all(val))]
     #[parse(SelectorsFragment::parse_array_until_block)]
-    data: Vec<SelectorsFragment>
+    data: Vec<SelectorsFragment>,
 }
 impl SelectorArgs {
     fn parse_option(input: ParseStream) -> syn::Result<Option<Self>> {
@@ -434,42 +475,41 @@ impl SelectorArgs {
 #[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
 pub enum Selector {
     #[parse(peek = Token![&])]
-    Nesting (Token![&]),
+    Nesting(Token![&]),
     #[parse(peek = Token![*])]
     Universal(Token![*]),
     #[parse(peek = Token![.])]
     Class {
         token_dot: Token![.],
-        ident: CssIdent
+        ident: CssIdent,
     },
     #[parse(peek = Token![#])]
     Id {
         token_hash: Token![#],
-        ident: CssIdent
+        ident: CssIdent,
     },
     #[parse(peek = Token![::])]
     PseudoElement {
         token_path: Token![::],
         ident: CssIdent,
         #[parse(SelectorArgs::parse_option)]
-        args: Option<SelectorArgs>
-        
+        args: Option<SelectorArgs>,
     },
     #[parse(peek = Token![:])]
     PseudoClass {
         token_colon: Token![:],
         ident: CssIdent,
         #[parse(SelectorArgs::parse_option)]
-        args: Option<SelectorArgs>
+        args: Option<SelectorArgs>,
     },
     Type(CssIdent),
 }
 
 #[derive(Clone, Debug, syn_derive::ToTokens)]
 pub enum SelectorsFragment {
+    Operation(SelectorOp),
     Selector(Selector),
-    Operation(SelectorOp)
-} 
+}
 impl SelectorsFragment {
     fn add_spaces(fragments: Vec<Self>) -> Vec<Self> {
         // dbg!(&fragments);
@@ -477,7 +517,6 @@ impl SelectorsFragment {
         dbg!(&fragments[0].span().end());
         let mut new_fragments = vec![];
         for chunk in fragments.windows(2) {
-
             dbg!(&chunk[0].span().end());
             new_fragments.push(chunk[0].clone());
             match chunk {
@@ -493,72 +532,102 @@ impl SelectorsFragment {
         new_fragments
     }
     fn parse_array_until_block(input: ParseStream) -> syn::Result<Vec<Self>> {
-        let result = parse_array_terminated(input, 
-            |p| p.peek(Brace) || p.peek(Token![;] ))?;
+        let result = parse_array_terminated(input, |p| p.peek(Brace) || p.peek(Token![;]))?;
         let mut new_results = vec![];
-        // add 
+        // add
         for res in result {
             match res {
                 SelectorsFragment::Selector(Selector::Class { token_dot, ident }) => {
                     let idents = ident.clone().split_ident()?;
                     let (ident, rest) = idents.split_first().expect("non empty");
-                    new_results.push(SelectorsFragment::Selector(Selector::Class { token_dot, ident:ident.clone() }));
+                    new_results.push(SelectorsFragment::Selector(Selector::Class {
+                        token_dot,
+                        ident: ident.clone(),
+                    }));
                     for ident in rest {
-                        new_results.push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
+                        new_results
+                            .push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
                     }
                 }
                 SelectorsFragment::Selector(Selector::Id { token_hash, ident }) => {
                     let idents = ident.clone().split_ident()?;
                     let (ident, rest) = idents.split_first().expect("non empty");
-                    new_results.push(SelectorsFragment::Selector(Selector::Id { token_hash, ident:ident.clone() }));
+                    new_results.push(SelectorsFragment::Selector(Selector::Id {
+                        token_hash,
+                        ident: ident.clone(),
+                    }));
                     for ident in rest {
-                        new_results.push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
+                        new_results
+                            .push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
                     }
                 }
-                SelectorsFragment::Selector(Selector::PseudoElement { token_path, ident, args: None }) => {
+                SelectorsFragment::Selector(Selector::PseudoElement {
+                    token_path,
+                    ident,
+                    args: None,
+                }) => {
                     let idents = ident.clone().split_ident()?;
                     let (ident, rest) = idents.split_first().expect("non empty");
-                    new_results.push(SelectorsFragment::Selector(Selector::PseudoElement { token_path, ident:ident.clone(), args: None }));
+                    new_results.push(SelectorsFragment::Selector(Selector::PseudoElement {
+                        token_path,
+                        ident: ident.clone(),
+                        args: None,
+                    }));
                     for ident in rest {
-                        new_results.push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
+                        new_results
+                            .push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
                     }
                 }
-                SelectorsFragment::Selector(Selector::PseudoClass { token_colon, ident, args: None }) => {
+                SelectorsFragment::Selector(Selector::PseudoClass {
+                    token_colon,
+                    ident,
+                    args: None,
+                }) => {
                     let idents = ident.clone().split_ident()?;
                     let (ident, rest) = idents.split_first().expect("non empty");
-                    new_results.push(SelectorsFragment::Selector(Selector::PseudoClass { token_colon, ident:ident.clone(), args: None }));
+                    new_results.push(SelectorsFragment::Selector(Selector::PseudoClass {
+                        token_colon,
+                        ident: ident.clone(),
+                        args: None,
+                    }));
                     for ident in rest {
-                        new_results.push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
+                        new_results
+                            .push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
                     }
                 }
-                SelectorsFragment::Selector(Selector::Type (ident)) => {
+                SelectorsFragment::Selector(Selector::Type(ident)) => {
                     let idents = ident.clone().split_ident()?;
                     let (ident, rest) = idents.split_first().expect("non empty");
-                    new_results.push(SelectorsFragment::Selector(Selector::Type ( ident.clone() )));
+                    new_results.push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
                     for ident in rest {
-                        new_results.push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
+                        new_results
+                            .push(SelectorsFragment::Selector(Selector::Type(ident.clone())));
                     }
-                }    
-                res => new_results.push(res)
+                }
+                res => new_results.push(res),
             }
         }
-        
+
         Ok(Self::add_spaces(new_results))
     }
 }
 
 impl Parse for SelectorsFragment {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let fork = input.fork();
-        if let Ok(selector) = fork.parse() {
-            input.advance_to(&fork);
-            return Ok(SelectorsFragment::Selector(selector))
+        let res = if input.peek(Token![+])
+            || input.peek(Token![>])
+            || input.peek(Token![||])
+            || input.peek(Token![~])
+            || input.peek(Token![|])
+            || input.peek(Token![,])
+        {
+            SelectorsFragment::Operation(input.parse()?)
         } else {
-            Ok(SelectorsFragment::Operation(input.parse()?))
-        }
+            SelectorsFragment::Selector(input.parse()?)
+        };
+        Ok(res)
     }
 }
-
 
 #[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
 pub struct QRule {
@@ -568,7 +637,7 @@ pub struct QRule {
     pub block: CssBlock,
 }
 /// It's some kind of extensions for css.
-/// 
+///
 #[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
 pub struct AtRule {
     pub token_at: Token![@],
@@ -582,7 +651,7 @@ pub enum Rule {
     #[parse(peek = Token![@])]
     AtRule(AtRule),
     // Qualified rule
-    QRule(QRule)
+    QRule(QRule),
 }
 
 #[derive(Clone, Debug, syn_derive::Parse, syn_derive::ToTokens)]
@@ -592,15 +661,17 @@ pub struct StyleSheet {
     rules: Vec<Rule>,
 }
 
+// Parses html input
 pub fn parse2(tokens: TokenStream) -> syn::Result<StyleSheet> {
+    dbg!(&tokens);
     syn::parse2(tokens)
 }
 
-pub fn parse2_with_macro_call(tokens: TokenStream) -> syn::Result<StyleSheet> {
+pub fn parse_from_raw_string(tokens: TokenStream) -> syn::Result<StyleSheet> {
     let mut tokens = tokens.into_iter();
     tokens.next(); // css
-    tokens.next(); // ! 
-    // { .. }
+    tokens.next(); // !
+                   // { .. }
     if let Some(TokenTree::Group(g)) = tokens.next() {
         syn::parse2(g.stream())
     } else {
@@ -608,11 +679,8 @@ pub fn parse2_with_macro_call(tokens: TokenStream) -> syn::Result<StyleSheet> {
     }
 }
 
-
-
 impl Display for CssIdent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        
         for fragment in &self.fragments {
             write!(f, "{}", fragment)?
         }
@@ -623,15 +691,9 @@ impl Display for CssIdent {
 impl Display for IdentFragment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IdentFragment::Digit(d) => {
-                write!(f, "{}", d)?
-            },
-            IdentFragment::Minus(_) => {
-                write!(f, "-")?
-            },
-            IdentFragment::Ident(i) => {
-                write!(f, "{}", i)?
-            }
+            IdentFragment::Digit(d) => write!(f, "{}", d)?,
+            IdentFragment::Minus(_) => write!(f, "-")?,
+            IdentFragment::Ident(i) => write!(f, "{}", i)?,
         }
         Ok(())
     }
@@ -652,10 +714,10 @@ impl Display for Sign {
 }
 impl Display for DotNumber {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-       if let Some(sign) = &self.token_sign {
+        if let Some(sign) = &self.token_sign {
             write!(f, "{}", sign)?;
-       }
-       write!(f, ".")
+        }
+        write!(f, ".")
     }
 }
 
@@ -665,7 +727,6 @@ impl Display for Number {
             write!(f, "{}", e)?
         }
         write!(f, "{}", self.number)
-        
     }
 }
 
@@ -686,7 +747,7 @@ impl Display for PercentToken {
 }
 impl Display for StringToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.literal)
+        write!(f, "{}", self.literal.token())
     }
 }
 impl Display for Value {
@@ -698,7 +759,8 @@ impl Display for Value {
             Value::Number(n) => n.fmt(f),
             Value::Percent(p) => p.fmt(f),
             Value::String(p) => p.fmt(f),
-            Value::Verbatim(v) => v.fmt(f)
+            Value::Comma(p) => write!(f, ","),
+            Value::Verbatim(v) => v.fmt(f),
         }
     }
 }
@@ -752,11 +814,11 @@ impl Display for Selector {
         match self {
             Selector::Class { ident, .. } => write!(f, ".{}", ident),
             Selector::Id { ident, .. } => write!(f, "#{}", ident),
-            Selector::PseudoClass {  ident, .. } => write!(f, ":{}", ident),
-            Selector::PseudoElement {  ident, .. } => write!(f, "::{}", ident),
+            Selector::PseudoClass { ident, .. } => write!(f, ":{}", ident),
+            Selector::PseudoElement { ident, .. } => write!(f, "::{}", ident),
             Selector::Nesting(_) => write!(f, "&"),
             Selector::Type(ident) => write!(f, "{}", ident),
-            Selector::Universal(_) => write!(f, "*")
+            Selector::Universal(_) => write!(f, "*"),
         }
     }
 }
@@ -771,7 +833,7 @@ impl Display for SelectorsFragment {
 }
 impl Display for QRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for selector in &self.selectors{
+        for selector in &self.selectors {
             write!(f, "{}", selector)?;
         }
         write!(f, " {}", self.block)
@@ -782,7 +844,7 @@ impl Display for Rule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Rule::AtRule(a) => a.fmt(f),
-            Rule::QRule(b) => b.fmt(f)
+            Rule::QRule(b) => b.fmt(f),
         }
     }
 }
@@ -799,99 +861,110 @@ impl Display for StyleSheet {
 mod test {
     use std::str::FromStr;
 
+    use pretty_assertions::{assert_eq, assert_ne};
     use proc_macro2::TokenStream;
     use quote::quote;
     use syn::parse::ParseStream;
 
-    use crate::{parse2, CssIdent, Property, primitive_tokens::Value};
+    use crate::{parse2, primitive_tokens::Value, CssIdent, Property};
 
-    #[test] 
+    #[test]
     fn test_ident() {
-        let ident: CssIdent = syn::parse2(quote!{
+        let ident: CssIdent = syn::parse2(quote! {
             foo
-        }).unwrap();
+        })
+        .unwrap();
 
         assert_eq!(ident.to_string(), "foo");
-        let ident: CssIdent = syn::parse2(quote!{
+        let ident: CssIdent = syn::parse2(quote! {
             foo-bar
-        }).unwrap();
+        })
+        .unwrap();
 
         assert_eq!(ident.to_string(), "foo-bar");
-        let ident: CssIdent = syn::parse2(quote!{
+        let ident: CssIdent = syn::parse2(quote! {
             foo- bar
-        }).unwrap();
+        })
+        .unwrap();
 
         assert_eq!(ident.to_string(), "foo-bar");
-        let ident: CssIdent = syn::parse2(quote!{
+        let ident: CssIdent = syn::parse2(quote! {
             --foo_bar
-        }).unwrap();
+        })
+        .unwrap();
 
         assert_eq!(ident.to_string(), "--foo_bar");
 
         use syn::parse::Parser as _;
         // let parser = move |input: ParseStream| Ok(self.parse_syn_stream(input));
 
-        let parser = |input: ParseStream| {
-            CssIdent::parse_array(input)
-        };
-        
-        let idents = parser.parse2(quote!{
-            --foo_--bar
-        }).unwrap();
-        
+        let parser = |input: ParseStream| CssIdent::parse_array(input);
+
+        let idents = parser
+            .parse2(quote! {
+                --foo_--bar
+            })
+            .unwrap();
+
         assert_eq!(idents[0].to_string(), "--foo_");
         assert_eq!(idents[1].to_string(), "--bar");
 
-        let idents = parser.parse2(quote!{
-            --foo-----bar
-        }).unwrap();
-        
+        let idents = parser
+            .parse2(quote! {
+                --foo-----bar
+            })
+            .unwrap();
+
         assert_eq!(idents[0].to_string(), "--foo");
         assert_eq!(idents[1].to_string(), "-----bar");
 
-        let idents = parser.parse2(quote!{
-            --foo-bar
-        }).unwrap();
-        
+        let idents = parser
+            .parse2(quote! {
+                --foo-bar
+            })
+            .unwrap();
+
         assert_eq!(idents[0].to_string(), "--foo-bar");
         //check that ident can't end with double minus
-        let _ = parser.parse2(quote!{
-            --foo--
-        }).unwrap_err();
-
+        let _ = parser
+            .parse2(quote! {
+                --foo--
+            })
+            .unwrap_err();
     }
 
-    #[test] 
+    #[test]
     fn test_property() {
-        let property: Property = syn::parse2(quote!{
+        let property: Property = syn::parse2(quote! {
             foo: 32px;
-        }).unwrap();
+        })
+        .unwrap();
 
         assert_eq!(property.to_string(), "foo: 32px;");
-
     }
 
     #[test]
     fn test_values() {
-        let value: Value = syn::parse2(quote!{
+        let value: Value = syn::parse2(quote! {
             foo
-        }).unwrap();
+        })
+        .unwrap();
 
         assert!(matches!(value, Value::Ident(_)));
         assert_eq!(value.to_string(), "foo");
 
-
-        let value: Value = syn::parse2(quote!{
+        let value: Value = syn::parse2(quote! {
             --foo-bar
-        }).unwrap();
+        })
+        .unwrap();
 
         assert!(matches!(value, Value::Ident(_)));
         assert_eq!(value.to_string(), "--foo-bar");
 
-
-        let value: Value = syn::parse2(quote!{
+        let value: Value = syn::parse2(quote! {
             var(--foo)
-        }).unwrap();
+        })
+        .unwrap();
 
         assert!(matches!(value, Value::Function(_)));
         assert_eq!(value.to_string(), "var(--foo)");
@@ -900,8 +973,7 @@ mod test {
     #[test]
     fn simple_parse() {
         // TODO: rewrite display implementation
-        let css_str = 
-r#".bar {
+        let css_str = r#".bar {
 foo: 32;
 }
 div {
@@ -917,43 +989,106 @@ x: y;
         assert_eq!(style.to_string(), css_str);
     }
 
+    #[test]
+    fn stylers_example1() {
+        let css_str = r##"button {
+background-color: green;
+border-radius: 8px;
+border-style: none;
+box-sizing: border-box;
+color: yellow;
+cursor: pointer;
+display: inline-block;
+font-family: r#"Haas Grot Text R Web"#, r#"Helvetica Neue"#, Helvetica, Arial, sans-serif;
+font-size: 14px;
+font-weight: 500;
+height: 40px;
+line-height: 20px;
+list-style: none;
+margin: 0;
+outline: none;
+padding: 10px 16px;
+position: relative;
+text-align: center;
+text-decoration: none;
+transition: color 100ms;
+vertical-align: baseline;
+user-select: none;
+-webkit-user-select: none;
+}
+button:hover {
+background-color: yellow;
+color: green;
+}
+"##;
+        let css = TokenStream::from_str(css_str).unwrap();
+        let style = parse2(css).unwrap();
+        dbg!(&style);
+        assert_eq!(style.to_string(), css_str);
+    }
 
-    #[test] 
-    fn stylers_example() {
-        let css_str = 
-        r##"button {
-            background-color: green;
-            border-radius: 8px;
-            border-style: none;
-            box-sizing: border-box;
-            color: yellow;
-            cursor: pointer;
-            display: inline-block;
-            font-family: r#"Haas Grot Text R Web"#, r#"Helvetica Neue"#, Helvetica, Arial, sans-serif;
-            font-size: 14px;
-            font-weight: 500;
-            height: 40px;
-            line-height: 20px;
-            list-style: none;
-            margin: 0;
-            outline: none;
-            padding: 10px 16px;
-            position: relative;
-            text-align: center;
-            text-decoration: none;
-            transition: color 100ms;
-            vertical-align: baseline;
-            user-select: none;
-            -webkit-user-select: none;
+    #[test]
+    fn stylers_example2() {
+        let css_str = r##"button {
+
+font-family: r#"Haas Grot Text R Web"#, r#"Helvetica Neue"#, Helvetica, Arial, sans-serif;
+color: green;
+padding: 10px 16px;
+text-decoration: none;
+transition: color 100ms;
+}
+button:hover {
+color: green;
+}
+"##;
+        let css = TokenStream::from_str(css_str).unwrap();
+        let style = parse2(css).unwrap();
+        dbg!(&style);
+        assert_eq!(style.to_string(), css_str);
+    }
+
+    #[test]
+    fn stylers_example_advance() {
+        let css_str = r##"
+        div {
+            border: 1px solid black; /* This comment also will be ignored */
+            margin: 25px 50px 75px 100px;
+            background-color: lightblue;
+            // The macro trims all double quotes by default unless it is wrapped with raw_str()
+            content: raw_str(r#"\hello"#);
+            font: "1.3em/1.2" Arial, Helvetica, sans-serif;
         }
-        button:hover {
+        .two{
+            color: orange;
+        }
+        div .one p{
+            color: blue;
+        }
+        div.one{
+            color: red;
+        }
+        div #two{
+            color: blue;
+        }
+        h2,a {
+            color: red;
+        }
+        .one:hover{
             background-color: yellow;
-            color: green;
         }
-        "##;
-                let css = TokenStream::from_str(css_str).unwrap();
-                let style = parse2(css).unwrap();
-                dbg!(&style);
-        
+        p:lang(it){
+            background: yellow;
+        }
+        p::before {
+            content: raw_str("Read this: ");
+        }
+        .example-url{
+            font: "1.3em/1.2" Arial, Helvetica, sans-serif;
+            content: r#"url("https://picsum.photos/200/300")"#;
+        }"##;
+
+        let css = TokenStream::from_str(css_str).unwrap();
+        let style = parse2(css).unwrap();
+        dbg!(&style);
     }
 }

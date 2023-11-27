@@ -15,10 +15,14 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-proc-macro2 = {version = "1.0.69", features = ["span-locations"]}
+proc-macro2 = { version = "1.0.69", features = ["span-locations"] }
 quote = "1.0.21"
 syn = { version = "2.0.15", features = ["full", "parsing", "extra-traits"] }
 thiserror = "1.0.37"
 syn_derive = "0.1.6"
 proc-macro2-diagnostics = { version = "0.10", default-features = false }
 derive-where = "1.2.5"
+rstml = { path = "../rstml", features = ["rawtext-stable-hack-module"] }
+
+[dev-dependencies]
+pretty_assertions = "1.4"
