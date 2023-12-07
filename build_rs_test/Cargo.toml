@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 [dev-dependencies]
 rcss = { workspace = true }
-rcss_core = { workspace = true, features = ["stylers", "lightningcss"] }
+rcss-core = { workspace = true, features = ["stylers", "lightningcss"] }
 regex = "1.10.2"

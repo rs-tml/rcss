@@ -1,7 +1,13 @@
 [package]
-name = "rcss_core"
+name = "rcss-core"
 version = "0.1.0"
 edition = "2021"
+description = "RCSS - (core) contain parser functionality."
+authors = ["vldm <me@vldm.cc>"]
+keywords = ["css", "html", "rsx", "macro", "parse"]
+repository = "https://github.com/rs-tml/rcss"
+license = "MIT"
+include = ["/src", "../LICENSE"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -24,8 +30,8 @@ quote = { workspace = true }
 [features]
 default = ["auto-snake-case", "indexed-classes"]
 
-# Note: in rcss_core, all backends can be enabled at once.
-# But in rcss_macro/rcss only one backend can be enabled at once.
+# Note: in rcss-core, all backends can be enabled at once.
+# But in rcss-macro/rcss only one backend can be enabled at once.
 lightningcss = ["dep:lightningcss", "dep:parcel_selectors", "dep:cssparser"]
 procss = []
 stylers = ["dep:stylers_core"]

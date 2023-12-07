@@ -1,5 +1,5 @@
 [workspace]
-members = ["rcss", "rcss_core", "build_rs_test", "rcss_macro", "macro_visit"]
+members = ["rcss", "rcss-core", "build_rs_test", "rcss-macro", "macro-visit"]
 exclude = ["build_rs_test/tested_project"]
 resolver = "2"
 
@@ -21,9 +21,9 @@ rand = "0.8.4"
 rand_chacha = "0.3.1"
 
 
-rcss_core = { version = "0.1.0", path = "rcss_core" }
-rcss_macro = { version = "0.1.0", path = "rcss_macro" }
+rcss-core = { version = "0.1.0", path = "rcss-core" }
+rcss-macro = { version = "0.1.0", path = "rcss-macro" }
 rcss = { version = "0.1.0", path = "rcss" }
-macro_visit = { version = "0.1.0", path = "macro_visit" }
+macro-visit = { version = "0.1.0", path = "macro-visit" }
 
 criterion = "0.5"

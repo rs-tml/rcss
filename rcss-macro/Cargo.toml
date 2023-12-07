@@ -1,0 +1,49 @@
+[package]
+name = "rcss-macro"
+version = "0.1.0"
+edition = "2021"
+description = "RCSS - (macro) implementation of proc macros."
+authors = ["vldm <me@vldm.cc>"]
+keywords = ["css", "html", "rsx", "macro", "parse"]
+repository = "https://github.com/rs-tml/rcss"
+license = "MIT"
+include = ["/src", "../LICENSE"]
+
+[lib]
+proc-macro = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+rcss-core = { workspace = true, features = ["macro-helper"] }
+
+[features]
+default = []
+
+# Note: in rcss-core, all backends can be enabled at once.
+# But in rcss-macro/rcss only one backend can be enabled at once.
+lightningcss = ["rcss-core/lightningcss"]
+procss = ["rcss-core/procss"]
+stylers = ["rcss-core/stylers"]
+
+
+[package.metadata.cargo-all-features]
+skip_feature_sets = [
+    [
+        "procss",
+        "lightningcss",
+    ],
+    [
+        "stylers",
+        "lightningcss",
+    ],
+    [
+        "procss",
+        "stylers",
+    ],
+    [
+    ],
+]

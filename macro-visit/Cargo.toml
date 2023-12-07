@@ -1,5 +1,5 @@
 [package]
-name = "macro_visit"
+name = "macro-visit"
 version = "0.1.0"
 edition = "2021"
 description = "Function like proc-macro visitor for build.rs"

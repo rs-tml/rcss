@@ -52,7 +52,7 @@ fn main () {
 
 ```
 
-`macro_visit` will find all occurences of css macro, even if it was renamed.
+`macro-visit` will find all occurences of css macro, even if it was renamed.
 Currently it only looks for imports inside one file at time, and does not parallelize file processing.
 
 
