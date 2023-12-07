@@ -1,6 +1,6 @@
 [package]
 name = "rcss-core"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "RCSS - (core) contain parser functionality."
 authors = ["vldm <me@vldm.cc>"]
@@ -47,3 +47,8 @@ criterion = { workspace = true }
 name = "backend-scoped"
 harness = false
 path = "benches/backend-scoped.rs"
+
+
+[package.metadata.docs.rs]
+# Whether to pass `--all-features` to Cargo (default: false)
+all-features = true

@@ -8,7 +8,7 @@
 //! - lightweight procss
 //! - stylers_core from leptos ecosystem
 //!
-//! Can output css files, or elements in inline <style> element.
+//! Can output css files, or elements in inline `<style>` element.
 //! Provide scope or css_modules like api.
 //!
 //! For scoped api, it generate random class name as scope identifier.
@@ -67,7 +67,7 @@ pub mod inline {
         pub use rcss_macro::css_module_mod as css_mod;
     }
 
-    /// Scoped css, that output content for inline <style> element.
+    /// Scoped css, that output content for inline `<style>` element.
     /// Uses random class as scope separator. So it should be used inside each element.
     /// Output class name and style as result of macro call.
     ///
