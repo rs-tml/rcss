@@ -46,17 +46,15 @@ impl<'i> CssStyleProcessor<'i> for Preprocessor<'i> {
                 self.visitor.visit_selector_fragment(fragment);
 
                 for component in fragment.iter_mut_raw_match_order() {
-                    match component {
-                        Component::Class(ref mut class) => {
-                            let source: String = class.to_css_string();
-                            let mut cloned = source.clone();
-                            self.visitor.visit_each_class(&mut cloned);
-                            if cloned != source {
-                                let result: cssparser::CowRcStr = cloned.into();
-                                *class = result.into();
-                            }
-                        }
-                        _ => {}
+                    let Component::Class(ref mut class) = component else {
+                        continue;
+                    };
+                    let source: String = class.to_css_string();
+                    let mut cloned = source.clone();
+                    self.visitor.visit_each_class(&mut cloned);
+                    if cloned != source {
+                        let result: cssparser::CowRcStr = cloned.into();
+                        *class = result.into();
                     }
                 }
                 Ok(())
@@ -66,8 +64,11 @@ impl<'i> CssStyleProcessor<'i> for Preprocessor<'i> {
     }
 
     fn to_string(&self) -> String {
-        let mut options = PrinterOptions::default();
-        options.minify = true;
+        let options = PrinterOptions {
+            minify: true,
+            ..Default::default()
+        };
+
         self.style.to_css(options).unwrap().code
     }
 }

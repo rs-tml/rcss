@@ -34,7 +34,7 @@ pub fn macro_input(source_text: &str, skip_ident_arrow: bool) -> Option<String> 
     }
     let trimed = group.trim();
 
-    return Some(trimed.to_owned());
+    Some(trimed.to_owned())
 }
 
 /// Get macro input from macro call source text.
@@ -64,7 +64,7 @@ pub fn macro_input_with_token_stream(source_text: &str, skip_ident_arrow: bool) 
 
     // Skip path to the macro with exclamation mark:
     // example: "foo::module::bar! /*stop */ {...}"
-    while let Some(tt) = stream_iter.next() {
+    for tt in stream_iter.by_ref() {
         if let proc_macro2::TokenTree::Punct(p) = tt {
             if p.as_char() == '!' {
                 break;
@@ -75,7 +75,7 @@ pub fn macro_input_with_token_stream(source_text: &str, skip_ident_arrow: bool) 
     if let Some(proc_macro2::TokenTree::Group(g)) = stream_iter.next() {
         let mut stream_iter = g.stream().into_iter();
         if skip_ident_arrow {
-            while let Some(tt) = stream_iter.next() {
+            for tt in stream_iter.by_ref() {
                 let proc_macro2::TokenTree::Punct(p) = tt else {
                     continue;
                 };

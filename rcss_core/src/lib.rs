@@ -358,10 +358,10 @@ impl CssOutput {
 
     #[doc(hidden)]
     pub fn classes_list(&self) -> impl Iterator<Item = &str> {
-        self.changed_classes.iter().map(|(k, _v)| k.as_str())
+        self.changed_classes.keys().map(|k| k.as_str())
     }
 
-    pub fn to_string(&self) -> String {
+    pub fn style_string(&self) -> String {
         self.css_data.clone()
     }
 
@@ -613,14 +613,14 @@ mod tests {
         let style = ".my-class[data-attr] > .my-class2, div.foo:pseudo, .asd#id {}";
         let output = processor.process_style(style);
         assert_eq!(
-            output.to_string(),
+            output.style_string(),
             ".my-class[data-attr]>.my-class2._f1HPvp,div.foo:pseudo._f1HPvp,.asd#id._f1HPvp{}"
         );
 
         processor.embeding = CssEmbeding::CssModules;
         let output = processor.process_style(style);
         assert_eq!(
-            output.to_string(),
+            output.style_string(),
             ".my-class-f1HP[data-attr]>.my-class2-f1HP,div.foo-f1HP:pseudo,.asd-f1HP#id{}"
         );
     }
@@ -633,7 +633,7 @@ mod tests {
         let output = processor.process_style(style);
         // note that random class is same as in check_processor_api test, because we use same input.
         assert_eq!(
-            output.to_string(),
+            output.style_string(),
             ".my-class[data-attr]>.my-class2._f1HPvp,div.foo:pseudo._f1HPvp,.asd#id._f1HPvp{}"
         );
 
@@ -641,7 +641,7 @@ mod tests {
         let style = ".my-class[data-attr] > .my-class2, div.foo:pseudo, .asd#id {color:red}";
         let output = processor.process_style(style);
         assert_eq!(
-            output.to_string(),
+            output.style_string(),
             ".my-class[data-attr]>.my-class2._l3XxIL,div.foo:pseudo._l3XxIL,.asd#id._l3XxIL{color:red}"
         );
     }
@@ -659,7 +659,7 @@ mod tests {
         let output = processor.process_style(style);
         // order for pseudo classes is not preserved, but both is valid selectors.
         assert_eq!(
-            output.to_string(),
+            output.style_string(),
             ".my-class2._lkhJfY,div.foo._lkhJfY:pseudo, .asd#id._lkhJfY{}"
         );
     }

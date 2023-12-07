@@ -18,7 +18,7 @@ mod fallback_ide;
 pub fn css_module(tokens: TokenStream) -> TokenStream {
     let v = css_inner(false, CssEmbeding::CssModules)
         .unwrap_or_else(|| fallback_ide::parse(tokens.into()));
-    return v.generate_css_module(None).into();
+    v.generate_css_module(None).into()
 }
 #[proc_macro]
 pub fn css_module_inline(tokens: TokenStream) -> TokenStream {
@@ -26,7 +26,7 @@ pub fn css_module_inline(tokens: TokenStream) -> TokenStream {
         .unwrap_or_else(|| fallback_ide::parse(tokens.into()));
 
     let module = v.generate_css_module(None);
-    let style = v.to_string();
+    let style = v.style_string();
 
     let is_proc_macro = proc_macro::is_available();
     let envs = std::env::vars()
@@ -48,18 +48,18 @@ pub fn css_scoped(tokens: TokenStream) -> TokenStream {
     let v =
         css_inner(false, CssEmbeding::Scoped).unwrap_or_else(|| fallback_ide::parse(tokens.into()));
     let class_name = v.class_name();
-    return quote! {
+    quote! {
 
         #class_name
 
     }
-    .into();
+    .into()
 }
 #[proc_macro]
 pub fn css_scoped_inline(_tokens: TokenStream) -> TokenStream {
     if let Some(v) = css_inner(false, CssEmbeding::Scoped) {
         let class_name = v.class_name();
-        let style = v.to_string();
+        let style = v.style_string();
 
         return quote! {
 
@@ -116,7 +116,7 @@ pub fn css_module_struct(tokens: TokenStream) -> TokenStream {
 
     let v = css_inner(true, CssEmbeding::CssModules)
         .unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
-    return v.generate_css_module(Some(ident)).into();
+    v.generate_css_module(Some(ident)).into()
 }
 
 #[proc_macro]
@@ -152,7 +152,7 @@ pub fn css_module_mod(tokens: TokenStream) -> TokenStream {
     let v = css_inner(true, CssEmbeding::CssModules)
         .unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
     let struct_generated = v.generate_css_module(Some(format_ident!("Css")));
-    let style = v.to_string();
+    let style = v.style_string();
     let stream = quote! {
         mod #mod_name {
             #struct_generated
@@ -171,5 +171,5 @@ fn css_inner(struct_ident_expected: bool, embeding: CssEmbeding) -> Option<CssOu
     let mut processor =
         rcss_core::CssProcessor::new(rcss_core::CssPreprocessor::LightningCss, embeding);
     let output = processor.process_style(&text);
-    return Some(output);
+    Some(output)
 }

@@ -92,9 +92,9 @@ fn parse_inner(input: TokenStream) -> CssOutput {
             .map(|ident| {
                 let first_span = ident.first().unwrap().span();
                 let mut span = first_span;
-                let mut ident = ident.into_iter();
+                let ident = ident.into_iter();
                 let mut ident_str = String::new();
-                while let Some(tt) = ident.next() {
+                for tt in ident {
                     ident_str.push_str(&tt.to_string());
                     span = span.join(tt.span()).unwrap_or(span);
                 }

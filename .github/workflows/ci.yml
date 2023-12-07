@@ -20,8 +20,11 @@ jobs:
       - name: build
         run: cargo build
 
+      - name: Install all-features
+        run: cargo install cargo-all-features
+
       - name: test
-        run: cargo test -p rstml --features "rawtext-stable-hack-module"
+        run: cargo test-all-features
 
       - name: clippy
         run: cargo clippy --workspace

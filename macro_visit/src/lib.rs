@@ -17,13 +17,22 @@ use proc_macro2::TokenStream;
 /// Creates new visitor for each function, to avoid mixed `use` items.
 ///
 /// It uses lifetime to allow variable to be captured into closure.
+
+pub type RcMacro<'a> = Rc<RefCell<dyn FnMut(TokenStream) + 'a>>;
+pub type MacroMap<'a> = BTreeMap<String, RcMacro<'a>>;
 #[derive(Clone)]
 pub struct Visitor<'a> {
-    searched_imports: BTreeMap<String, Rc<RefCell<dyn FnMut(TokenStream) + 'a>>>,
+    searched_imports: MacroMap<'a>,
 }
 impl std::fmt::Debug for Visitor<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Visitor").finish()
+    }
+}
+
+impl<'a> Default for Visitor<'a> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -41,18 +50,14 @@ impl<'a> Visitor<'a> {
             self.searched_imports.insert(import, macro_call.clone());
         }
     }
-    pub fn add_rc_macro(
-        &mut self,
-        imports: Vec<String>,
-        macro_call: Rc<RefCell<dyn FnMut(TokenStream) + 'a>>,
-    ) {
+    pub fn add_rc_macro(&mut self, imports: Vec<String>, macro_call: RcMacro<'a>) {
         for import in imports {
             self.searched_imports.insert(import, macro_call.clone());
         }
     }
     /// Handle content of file.
     pub fn visit_file_content(&mut self, content: &str) {
-        let file = syn::parse_file(&content).unwrap();
+        let file = syn::parse_file(content).unwrap();
         syn::visit::visit_file(self, &file)
     }
     /// Handle all *.rs files in src of project directory.
@@ -71,7 +76,7 @@ impl<'a> Visitor<'a> {
             searched_imports: self.searched_imports.clone(),
         }
     }
-    fn get_macro(&self, path: syn::Path) -> Option<Rc<RefCell<dyn FnMut(TokenStream) + 'a>>> {
+    fn get_macro(&self, path: syn::Path) -> Option<RcMacro<'a>> {
         let path_str = path
             .segments
             .iter()
@@ -119,42 +124,41 @@ pub(crate) fn compare_use_tree(left: syn::UseTree, right: syn::UseTree) -> Vec<S
         }
         // If right is glob, then we remove prefix, and keep the rest import path as synonim.
         (left_tree, syn::UseTree::Glob(_)) => {
-            return vec![create_import_path(left_tree)]
+            vec![create_import_path(left_tree)]
         }
         // If right is group - traverse each group item.
         (left_tree, syn::UseTree::Group(right_g)) => {
-            return right_g.items.into_iter().map(move |item| {
+            right_g.items.into_iter().flat_map(move |item| {
                 compare_use_tree(left_tree.clone(), item)
-            }).flatten().collect::<Vec<_>>();
+            }).collect::<Vec<_>>()
         }
         // Name is terminal node,
         // if it equal - we can use macro by its name without full path.
         (syn::UseTree::Name(left_i), syn::UseTree::Name(right_i))
-        if left_i.ident.to_string() == right_i.ident.to_string()  =>
+        if right_i.ident == left_i.ident  =>
         {
-            return vec![create_import_path(syn::UseTree::Name(left_i))]
+            vec![create_import_path(syn::UseTree::Name(left_i))]
         }
         // Same but ident is renambed
         (syn::UseTree::Name(left_i), syn::UseTree::Rename(right_r))
-        if left_i.ident.to_string() == right_r.ident.to_string() => {
-            return vec![create_import_path(syn::UseTree::Name(
+        if right_r.ident == left_i.ident => {
+            vec![create_import_path(syn::UseTree::Name(
                 syn::UseName {
                     ident: right_r.rename,
-                    ..left_i
                 }))]
         }
         (syn::UseTree::Path(left_p), syn::UseTree::Name(right_i))
-        if left_p.ident.to_string() == right_i.ident.to_string() => {
-            return vec![create_import_path(syn::UseTree::Path(left_p))]
+        if right_i.ident == left_p.ident => {
+            vec![create_import_path(syn::UseTree::Path(left_p))]
         }
         (syn::UseTree::Path(left_p), syn::UseTree::Rename(right_r))
-        if left_p.ident.to_string() == right_r.ident.to_string() => {
+        if right_r.ident == left_p.ident => {
             let mut new_tree = left_p.clone();
             new_tree.ident = right_r.rename;
-            return vec![create_import_path(syn::UseTree::Path(new_tree))]
+            vec![create_import_path(syn::UseTree::Path(new_tree))]
         }
         (syn::UseTree::Path(left_p), syn::UseTree::Path(right_p))
-        if left_p.ident.to_string() == right_p.ident.to_string() => {
+        if right_p.ident == left_p.ident => {
             // traverse deeper, while path is same
             compare_use_tree(*left_p.tree, *right_p.tree)
         }
@@ -172,8 +176,7 @@ pub(crate) fn compare_use_tree(left: syn::UseTree, right: syn::UseTree) -> Vec<S
     }
 }
 pub(crate) fn use_tree_from_str(path: &str) -> syn::UseTree {
-    let path = syn::parse_str(path).unwrap();
-    path
+    syn::parse_str(path).unwrap()
 }
 
 pub(crate) fn create_import_path(remining: syn::UseTree) -> String {

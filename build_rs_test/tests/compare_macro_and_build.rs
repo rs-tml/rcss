@@ -12,8 +12,8 @@ fn test_compare_macro_and_build() {
     let cargo_dir = format!("{}/test_project", cargo_dir);
     let cargo_toml = format!("{cargo_dir}/Cargo.toml");
 
-    let expanded = Command::new(&cargo_path)
-        .args(&["expand", "--ugly", "--manifest-path", &cargo_toml])
+    let expanded = Command::new(cargo_path)
+        .args(["expand", "--ugly", "--manifest-path", &cargo_toml])
         .output()
         .expect("Failed to run cargo rustc");
     println!("stderr = {}", String::from_utf8(expanded.stderr).unwrap());
