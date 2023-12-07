@@ -17,13 +17,19 @@ jobs:
         run: cargo +nightly fmt --all -- --check
 
       - uses: dtolnay/rust-toolchain@stable
-      - name: build
-        run: cargo build
+      - name: Stable test
+        run: cargo test --workspace --exclude build_rs_test
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
 
       - name: Install all-features
         run: cargo install cargo-all-features
+      - name: Install cargo-expand for tests
+        run: cargo install cargo-expand
 
-      - name: test
+      - name: Nightly test all backends
         run: cargo test-all-features
 
       - name: clippy
