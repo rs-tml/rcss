@@ -1,0 +1,28 @@
+[package]
+name = "rcss_macro"
+version = "0.1.0"
+edition = "2021"
+[lib]
+proc-macro = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+rcss_core = { workspace = true, features = ["macro-helper"] }
+
+[features]
+default = []
+
+scoped = []
+css_modules = []
+
+file = []
+inline = []
+
+# only one backend can be enabled at a time
+lightningcss = ["rcss_core/lightningcss"]
+procss = ["rcss_core/procss"]
+stylers = ["rcss_core/stylers"]

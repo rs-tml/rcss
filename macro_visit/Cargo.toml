@@ -1,0 +1,21 @@
+[package]
+name = "macro_visit"
+version = "0.1.0"
+edition = "2021"
+description = "Function like proc-macro visitor for build.rs"
+authors = ["vldm <me@vldm.cc>"]
+keywords = ["visitor", "macro", "file", "agregate"]
+repository = "https://github.com/rs-tml/rcss"
+readme = "README.md"
+license = "MIT"
+resolver = "2"
+include = ["/src", "../LICENSE"]
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+syn = { workspace = true}
+proc-macro2 = { workspace = true}
+
+glob = { version = "0.3.0" }

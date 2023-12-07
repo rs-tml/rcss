@@ -1,28 +1,26 @@
-[package]
-name = "rcss"
-version = "0.0.0"
-edition = "2021"
-description = "Rust simplified CSS parser implemented on top of proc-macro::TokenStreams"
-authors = ["vldm <me@vldm.cc>"]
-keywords = ["css", "html", "rsx", "macro", "parse"]
-repository = "https://github.com/rs-tml/rcss"
-# readme = "README.md"
-license = "MIT"
-resolver = "2"
-# include = ["/src", "LICENSE"]
+[workspace]
+members = ["rcss", "rcss_core", "build_rs_test", "rcss_macro", "macro_visit"]
+exclude = ["build_rs_test/tested_project"]
 
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+[workspace.dependencies]
+syn = { version = "2.0.15", features = [
+    "full",
+    "visit",
+    "parsing",
+    "extra-traits",
+] }
+quote = "1.0.9"
 proc-macro2 = { version = "1.0.69", features = ["span-locations"] }
-quote = "1.0.21"
-syn = { version = "2.0.15", features = ["full", "parsing", "extra-traits"] }
-thiserror = "1.0.37"
-syn_derive = "0.1.6"
-proc-macro2-diagnostics = { version = "0.10", default-features = false }
-derive-where = "1.2.5"
-rstml = { path = "../rstml", features = ["rawtext-stable-hack-module"] }
+glob = { version = "0.3.0" }
 
-[dev-dependencies]
+Inflector = { version = "0.11.4" }
 pretty_assertions = "1.4"
+
+rand = "0.8.4"
+rand_chacha = "0.3.1"
+
+
+rcss_core = { path = "rcss_core" }
+rcss_macro = { path = "rcss_macro" }
+rcss = { path = "rcss" }
+macro_visit = { path = "macro_visit" }

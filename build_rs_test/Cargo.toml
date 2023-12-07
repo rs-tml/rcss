@@ -1,11 +1,12 @@
 [package]
-name = "shared_lib"
+name = "build_rs_test"
 version = "0.1.0"
 edition = "2021"
-[lib]
-crate-type = ["dylib"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-proc-macro2 = "1.0.69"
-rcss = { version = "0.0.0", path = "../../" }
+[dev-dependencies]
+rcss = { workspace = true }
+rcss_core = { workspace = true }
+regex = "1.10.2"
