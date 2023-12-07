@@ -1,6 +1,7 @@
 [workspace]
 members = ["rcss", "rcss_core", "build_rs_test", "rcss_macro", "macro_visit"]
 exclude = ["build_rs_test/tested_project"]
+resolver = "2"
 
 [workspace.dependencies]
 syn = { version = "2.0.15", features = [
@@ -20,7 +21,9 @@ rand = "0.8.4"
 rand_chacha = "0.3.1"
 
 
-rcss_core = { path = "rcss_core" }
-rcss_macro = { path = "rcss_macro" }
-rcss = { path = "rcss" }
-macro_visit = { path = "macro_visit" }
+rcss_core = { version = "0.1.0", path = "rcss_core" }
+rcss_macro = { version = "0.1.0", path = "rcss_macro" }
+rcss = { version = "0.1.0", path = "rcss" }
+macro_visit = { version = "0.1.0", path = "macro_visit" }
+
+criterion = "0.5"

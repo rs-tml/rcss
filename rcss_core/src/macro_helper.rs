@@ -15,8 +15,8 @@ use quote::spanned::Spanned;
 ///   }
 /// }
 /// "#;
-/// let macro_input = super::macro_input(input, false).unwrap();
-/// assert_eq!(macro_input, ".my-class {\n       color: red;\n   }");
+/// let macro_input = rcss_core::macro_helper::macro_input(input, false).unwrap();
+/// assert_eq!(macro_input, ".my-class {\n      color: red;\n  }");
 /// ```
 pub fn macro_input(source_text: &str, skip_ident_arrow: bool) -> Option<String> {
     // 1. Find macro call group (any type of braces)
@@ -28,7 +28,7 @@ pub fn macro_input(source_text: &str, skip_ident_arrow: bool) -> Option<String> 
 
     if skip_ident_arrow {
         let mut iter = group.splitn(3, |c| c == '=' || c == '>');
-        iter.next(); // Foo
+        iter.next(); // Foo [, variable_name]
         iter.next(); // =(empty string between tokens)>
         group = iter.next().unwrap_or("").trim();
     }
@@ -49,8 +49,8 @@ pub fn macro_input(source_text: &str, skip_ident_arrow: bool) -> Option<String> 
 ///   }
 /// }
 /// "#;
-/// let macro_input = super::macro_input_with_token_stream(input, false).unwrap();
-/// assert_eq!(macro_input, ".my-class {\n       color: red;\n   }");
+/// let macro_input = rcss_core::macro_helper::macro_input_with_token_stream(input, false).unwrap();
+/// assert_eq!(macro_input, ".my-class {\n      color: red;\n  }");
 /// ```
 pub fn macro_input_with_token_stream(source_text: &str, skip_ident_arrow: bool) -> Option<String> {
     use std::str::FromStr;
@@ -75,8 +75,15 @@ pub fn macro_input_with_token_stream(source_text: &str, skip_ident_arrow: bool) 
     if let Some(proc_macro2::TokenTree::Group(g)) = stream_iter.next() {
         let mut stream_iter = g.stream().into_iter();
         if skip_ident_arrow {
-            stream_iter.next(); // Foo
-            stream_iter.next(); // =
+            while let Some(tt) = stream_iter.next() {
+                let proc_macro2::TokenTree::Punct(p) = tt else {
+                    continue;
+                };
+                if p.as_char() == '=' {
+                    // =
+                    break;
+                }
+            }
             stream_iter.next(); // >
         }
 

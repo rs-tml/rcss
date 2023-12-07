@@ -27,14 +27,12 @@ where
     let collect_style = RefCell::new(Vec::new());
 
     let css_struct_handler = |input: TokenStream| {
-        // dbg!(&input.to_string());
         let mut stream = input.into_iter();
         // skip struct name
         stream.next(); // Foo
         stream.next(); // =
         stream.next(); // >
         let token_stream = stream.collect::<TokenStream>();
-        // dbg!(&token_stream.to_string());
         let source_text = token_stream
             .span()
             .source_text()

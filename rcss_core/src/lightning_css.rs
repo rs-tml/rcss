@@ -66,6 +66,8 @@ impl<'i> CssStyleProcessor<'i> for Preprocessor<'i> {
     }
 
     fn to_string(&self) -> String {
-        self.style.to_css(PrinterOptions::default()).unwrap().code
+        let mut options = PrinterOptions::default();
+        options.minify = true;
+        self.style.to_css(options).unwrap().code
     }
 }

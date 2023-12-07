@@ -30,7 +30,7 @@ pub mod inline {
     ///
     /// Example:
     /// ```rust
-    /// let css = rcss::inline::css_modules::css! {
+    /// let (css, inline) = rcss::inline::css_modules::css! {
     ///    .my-class {
     ///      color: red;
     ///   }
@@ -39,30 +39,32 @@ pub mod inline {
     /// // Note: css.my_class is in snake_case, uses feature = "auto-snake-case"
     /// assert!(css.my_class.contains("my-class"));
     /// // WARN: runtime panic if class is not found, feature = "indexed-classes"
-    /// assert_eq!(css["my-class"].contains("my-class"));
+    /// assert!(css["my-class"].contains("my-class"));
     ///
     /// // Example of usage
     /// let html = format!(r#"<div class="{}">Hello</div>"#, css.my_class);
+    /// let html = format!("<style>{}</style>\n{}", inline, html);
+    /// assert_eq!(html, "<style>.my-class-xxTX{color:red}</style>\n\
+    /// <div class=\"my-class-xxTX\">Hello</div>");
     /// ```
     pub mod css_modules {
         pub use rcss_macro::css_module_inline as css;
-        /// Generate struct with css classes as fields.
-        /// Uses ident from first macro argument as struct name.
-        /// Output style to second argument.
-        /// Expect comma ', between struct name and style_variable, and arrow '=>' after style_variable.
+        /// Generate module with css classes object named Css and static variable
+        /// STYLE with style string.
+        /// Uses ident from first macro argument as module name.
+        /// Expect arrow '=>' after module name.
         ///
         /// Example:
         /// ```rust
-        /// rcss::inline::css_modules::css_struct! {
-        /// Foo,
-        /// style =>
-        /// .my-class {
-        ///    color: red;
-        /// }
+        /// rcss::inline::css_modules::css_mod! {
+        /// module =>
+        ///     .my-class {
+        ///         color: red;
+        ///     }
         /// }
         /// ```
         ///
-        pub use rcss_macro::css_module_struct_inline as css_struct;
+        pub use rcss_macro::css_module_mod as css_mod;
     }
 
     /// Scoped css, that output content for inline <style> element.
@@ -72,7 +74,7 @@ pub mod inline {
     ///
     /// Example:
     /// ```rust
-    /// let (class, style) = scoped_inline::css! {
+    /// let (class, style) = rcss::inline::scoped::css! {
     ///   .my-class {
     ///     color: red;
     ///   }

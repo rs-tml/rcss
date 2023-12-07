@@ -59,14 +59,14 @@ pub struct CssProcessor {
 /// Preserve original order of classes, ids, pseudos, etc.
 ///
 /// Example:
-/// ```rust, no_build
+/// ```compile_fail
 /// let mut selectors: Vec<_> = SomeAbstractSelectorFragment::new_list(".my-class[data-attr] > .my-class2, div.foo:pseudo, .asd#id");
-/// for fragment in selector {
+/// for fragment in selectors {
 ///     fragment.append_new_class("bar");
 /// }
 /// assert_eq!(SomeAbstractSelectorFragment::list_to_css(&selector),
 ///            ".my-class[data-attr] > .my-class2.bar, div.foo:pseudo.bar, .asd#id.bar");
-///
+/// ```
 trait SelectorFragment {
     // Add new class to selector fragment.
     fn append_new_class(&mut self, class: &str);
@@ -253,7 +253,6 @@ impl CssProcessor {
     }
 
     fn init_random_class(&mut self, style: &str) {
-        dbg!(style);
         struct CssIdentChars;
         impl Distribution<char> for CssIdentChars {
             fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> char {
@@ -388,6 +387,7 @@ impl CssOutput {
             true
         }
 
+        #[allow(unused_mut)] //used in feature
         let mut changed_classes = self.changed_classes.clone();
         #[cfg(feature = "auto-snake-case")]
         {
@@ -525,6 +525,7 @@ mod tests {
     }
 
     impl<T> TestVisitor<T> {
+        #[allow(dead_code)] //used in feature
         fn new_suffix(suffix: &str) -> Self {
             Self {
                 suffix: Some(suffix.to_string()),
@@ -532,6 +533,7 @@ mod tests {
                 _marker: std::marker::PhantomData,
             }
         }
+        #[allow(dead_code)] //used in feature
         fn new_class(new_class: &str) -> Self {
             Self {
                 suffix: None,
@@ -559,6 +561,7 @@ mod tests {
     }
 
     // Check that lightning css visitor can add suffix to eh class.
+    #[cfg(feature = "lightningcss")]
     #[test]
     fn lightning_css_visitor_suffix() {
         use super::lightning_css::Preprocessor;
@@ -569,11 +572,12 @@ mod tests {
         processor.visit_modify(TestVisitor::new_suffix("bar"));
         assert_eq!(
             processor.to_string(),
-            ".my-class-bar[data-attr] > .my-class2-bar, div.foo-bar:pseudo, .asd-bar#id {\n}\n"
+            ".my-class-bar[data-attr]>.my-class2-bar,div.foo-bar:pseudo,.asd-bar#id{}"
         );
     }
 
     // Check that lightning css visitor can add new class to each selector.
+    #[cfg(feature = "lightningcss")]
     #[test]
     fn lightning_css_visitor_scoped() {
         use super::lightning_css::Preprocessor;
@@ -584,18 +588,20 @@ mod tests {
         processor.visit_modify(TestVisitor::new_class("bar"));
         assert_eq!(
             processor.to_string(),
-            ".my-class[data-attr] > .my-class2.bar, div.foo:pseudo.bar, .asd#id.bar {\n}\n"
+            ".my-class[data-attr]>.my-class2.bar,div.foo:pseudo.bar,.asd#id.bar{}"
         );
     }
+    #[cfg(feature = "lightningcss")]
     #[test]
     fn lightning_css_check_attribute_selector() {
         use super::lightning_css::Preprocessor;
         use super::CssStyleProcessor;
         let mut processor = Preprocessor::load_style(".my-class[data-attr] {}");
         processor.visit_modify(TestVisitor::new_class("bar"));
-        assert_eq!(processor.to_string(), ".my-class[data-attr].bar {\n}\n");
+        assert_eq!(processor.to_string(), ".my-class[data-attr].bar{}");
     }
 
+    #[cfg(feature = "lightningcss")]
     #[test]
     fn check_processor_api() {
         use super::{CssEmbeding, CssPreprocessor, CssProcessor};
@@ -608,17 +614,17 @@ mod tests {
         let output = processor.process_style(style);
         assert_eq!(
             output.to_string(),
-            ".my-class[data-attr] > .my-class2._f1HPvp, div.foo:pseudo._f1HPvp, .asd#id._f1HPvp {\n}\n"
+            ".my-class[data-attr]>.my-class2._f1HPvp,div.foo:pseudo._f1HPvp,.asd#id._f1HPvp{}"
         );
 
         processor.embeding = CssEmbeding::CssModules;
         let output = processor.process_style(style);
         assert_eq!(
             output.to_string(),
-            ".my-class-f1HP[data-attr] > .my-class2-f1HP, div.foo-f1HP:pseudo, .asd-f1HP#id {\n}\n"
+            ".my-class-f1HP[data-attr]>.my-class2-f1HP,div.foo-f1HP:pseudo,.asd-f1HP#id{}"
         );
     }
-
+    #[cfg(feature = "lightningcss")]
     #[test]
     fn check_that_class_random_changes() {
         use super::{CssEmbeding, CssPreprocessor, CssProcessor};
@@ -628,7 +634,7 @@ mod tests {
         // note that random class is same as in check_processor_api test, because we use same input.
         assert_eq!(
             output.to_string(),
-            ".my-class[data-attr] > .my-class2._f1HPvp, div.foo:pseudo._f1HPvp, .asd#id._f1HPvp {\n}\n"
+            ".my-class[data-attr]>.my-class2._f1HPvp,div.foo:pseudo._f1HPvp,.asd#id._f1HPvp{}"
         );
 
         // even small change in style should change random class.
@@ -636,10 +642,11 @@ mod tests {
         let output = processor.process_style(style);
         assert_eq!(
             output.to_string(),
-            ".my-class[data-attr] > .my-class2._l3XxIL, div.foo:pseudo._l3XxIL, .asd#id._l3XxIL {\n  color: red;\n}\n"
+            ".my-class[data-attr]>.my-class2._l3XxIL,div.foo:pseudo._l3XxIL,.asd#id._l3XxIL{color:red}"
         );
     }
 
+    #[cfg(feature = "stylers")]
     #[test]
     fn stylers_check_scoped_api() {
         use super::{CssEmbeding, CssPreprocessor, CssProcessor};
@@ -657,6 +664,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "stylers")]
     #[test]
     #[should_panic = "StylersCore preprocessor supports only scoped embeding"]
     fn stylers_check_css_modules() {
@@ -667,6 +675,7 @@ mod tests {
         let _output = processor.process_style(style);
     }
 
+    #[cfg(feature = "lightningcss")]
     #[test]
     #[cfg(not(feature = "auto-snake-case"))]
     fn check_css_module_generated_token_stream() {
@@ -680,7 +689,7 @@ mod tests {
 
         let index_impl = if cfg!(feature = "indexed-classes") {
             quote::quote! {
-                impl<'a> std::ops::Index<&'a str> for Module {
+                impl<'a> std::ops::Index<&'a str> for Css {
                     type Output = str;
                     fn index(&self, index: &'a str) -> &Self::Output {
                         match index {
@@ -702,14 +711,14 @@ mod tests {
         assert_eq!(
             css_module.to_string(),
             quote::quote! {{
-                    pub struct Module {
+                    pub struct Css {
                         pub asd: &'static str,
                         pub foo: &'static str,
                         pub snaked_case_class: &'static str,
                         __kebab_styled: std::collections::BTreeMap<&'static str, &'static str>,
                     }
 
-                    impl Module {
+                    impl Css {
                         pub fn new() -> Self {
                             let mut map = std::collections::BTreeMap::new();
                             map.insert("my-class", "my-class-mFQz");
@@ -724,12 +733,13 @@ mod tests {
                         }
                     }
                     #index_impl
-                    Module::new()
+                    Css::new()
                 }
             }
             .to_string()
         );
     }
+    #[cfg(feature = "lightningcss")]
     #[cfg(feature = "auto-snake-case")]
     #[test]
     fn check_css_module_generated_token_with_snake_conversion() {
@@ -743,14 +753,14 @@ mod tests {
 
         let index_impl = if cfg!(feature = "indexed-classes") {
             quote::quote! {
-                impl<'a> std::ops::Index<&'a str> for Module {
+                impl<'a> std::ops::Index<&'a str> for Css {
                     type Output = str;
                     fn index(&self, index: &'a str) -> &Self::Output {
                         match index {
                             "asd" => self.asd,
                             "foo" => self.foo,
                             "my_class" => self.my_class,
-                            "my_class2" => self.my_class2,
+                            "my_class_2" => self.my_class_2,
                             "snaked_case_class" => self.snaked_case_class,
                             other => self
                                 .__kebab_styled
@@ -766,16 +776,16 @@ mod tests {
         assert_eq!(
             css_module.to_string(),
             quote::quote! {{
-                    pub struct Module {
+                    pub struct Css {
                         pub asd: &'static str,
                         pub foo: &'static str,
                         pub my_class: &'static str,
-                        pub my_class2: &'static str,
+                        pub my_class_2: &'static str,
                         pub snaked_case_class: &'static str,
                         __kebab_styled: std::collections::BTreeMap<&'static str, &'static str>,
                     }
 
-                    impl Module {
+                    impl Css {
                         pub fn new() -> Self {
                             let mut map = std::collections::BTreeMap::new();
                             map.insert("my-class", "my-class-mFQz");
@@ -785,7 +795,7 @@ mod tests {
                                 asd: "asd-mFQz",
                                 foo: "foo-mFQz",
                                 my_class: "my-class-mFQz",
-                                my_class2: "my-class2-mFQz",
+                                my_class_2: "my-class2-mFQz",
                                 snaked_case_class: "snaked_case_class-mFQz",
                                 __kebab_styled: map,
                             }
@@ -793,13 +803,14 @@ mod tests {
                     }
                     #index_impl
 
-                    Module::new()
+                    Css::new()
                 }
             }
             .to_string()
         );
     }
 
+    #[cfg(feature = "lightningcss")]
     #[cfg(feature = "auto-snake-case")]
     #[test]
     fn check_css_module_in_global_place() {
@@ -820,7 +831,7 @@ mod tests {
                             "asd" => self.asd,
                             "foo" => self.foo,
                             "my_class" => self.my_class,
-                            "my_class2" => self.my_class2,
+                            "my_class_2" => self.my_class_2,
                             "snaked_case_class" => self.snaked_case_class,
                             other => self
                                 .__kebab_styled
@@ -840,7 +851,7 @@ mod tests {
                         pub asd: &'static str,
                         pub foo: &'static str,
                         pub my_class: &'static str,
-                        pub my_class2: &'static str,
+                        pub my_class_2: &'static str,
                         pub snaked_case_class: &'static str,
                         __kebab_styled: std::collections::BTreeMap<&'static str, &'static str>,
                     }
@@ -855,7 +866,7 @@ mod tests {
                                 asd: "asd-mFQz",
                                 foo: "foo-mFQz",
                                 my_class: "my-class-mFQz",
-                                my_class2: "my-class2-mFQz",
+                                my_class_2: "my-class2-mFQz",
                                 snaked_case_class: "snaked_case_class-mFQz",
                                 __kebab_styled: map,
                             }

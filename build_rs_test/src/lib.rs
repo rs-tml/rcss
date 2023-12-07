@@ -13,7 +13,7 @@ mod test {
         });
 
         let output = CssOutput::merge_to_string(&output);
-        assert_eq!(output, ".my-class2-kFmk {\n  color: #00f;\n}\n.my-class-GrC5 {\n  color: red;\n}\n.container-zGGy {\n  background-color: #000;\n}\n")
+        assert_eq!(output, ".my-class2-kFmk{color:#00f}.my-class-GrC5{color:red}.container-zGGy{background-color:#000}")
     }
 
     #[test]
@@ -27,7 +27,7 @@ mod test {
         });
 
         let output = CssOutput::merge_to_string(&output);
-        assert_eq!(output, ".my-class2._kFmkd8 {\n  color: #00f;\n}\n.my-class._GrC5Fp {\n  color: red;\n}\n.container._zGGyFA {\n  background-color: #000;\n}\n")
+        assert_eq!(output, ".my-class2._kFmkd8{color:#00f}.my-class._GrC5Fp{color:red}.container._zGGyFA{background-color:#000}")
     }
     #[test]
     fn test_collect_scoped_with_stylers() {

@@ -1,13 +1,9 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
-use quote::quote;
+use quote::{format_ident, quote, quote_spanned};
 
 use rcss_core::{self, macro_helper::macro_input, CssEmbeding, CssOutput};
-
-// #[cfg(all(feature = "file", feature = "inline"))]
-// compile_error!("Can't use both file and inline features at the same time");
-// #[cfg(all(feature = "scoped", feature = "css_module"))]
-// compile_error!("Can't use both scoped and css_module features at the same time");
+use syn::spanned::Spanned;
 
 #[cfg(any(
     all(feature = "lightningcss", feature = "postcss"),
@@ -68,8 +64,8 @@ pub fn css_scoped_inline(_tokens: TokenStream) -> TokenStream {
         return quote! {
 
             (
-                 #class_name,
-            #style
+                #class_name,
+                #style
             )
 
         }
@@ -83,7 +79,7 @@ pub fn css_scoped_inline(_tokens: TokenStream) -> TokenStream {
 ///
 /// Example:
 /// ```rust
-/// css_struct! {
+/// rcss_macro::css_module_struct! {
 ///  Foo =>
 ///   .my-class {
 ///    color: red;
@@ -105,50 +101,6 @@ pub fn css_module_struct(tokens: TokenStream) -> TokenStream {
     };
     let eq = token_iter.next(); // =
     let gt = token_iter.next(); // >
-    if matches!(eq, Some(TokenTree::Punct(p)) if p.as_char() == '=') {
-        return quote! {
-            compile_error!("Expected =>")
-        }
-        .into();
-    }
-    if matches!(gt, Some(TokenTree::Punct(p)) if p.as_char() == '>') {
-        return quote! {
-            compile_error!("Expected =>")
-        }
-        .into();
-    }
-
-    let v = css_inner(true, CssEmbeding::CssModules)
-        .unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
-    return v.generate_css_module(Some(ident)).into();
-}
-
-#[proc_macro]
-pub fn css_module_struct_inline(tokens: TokenStream) -> TokenStream {
-    let tokens: proc_macro2::TokenStream = tokens.into();
-    let mut token_iter = tokens.into_iter();
-    let Some(TokenTree::Ident(ident)) = token_iter.next() else {
-        return quote! {
-            compile_error!("Expected struct name")
-        }
-        .into();
-    };
-    let comma = token_iter.next(); // ,
-    if !matches!(comma, Some(TokenTree::Punct(p)) if p.as_char() == ',') {
-        return quote! {
-            compile_error!("Expected ,")
-        }
-        .into();
-    }
-    let Some(TokenTree::Ident(style_ident)) = token_iter.next() else {
-        return quote! {
-            compile_error!("Expected style variable name")
-        }
-        .into();
-    };
-
-    let eq = token_iter.next(); // =
-    let gt = token_iter.next(); // >
     if !matches!(eq, Some(TokenTree::Punct(p)) if p.as_char() == '=') {
         return quote! {
             compile_error!("Expected =>")
@@ -164,14 +116,51 @@ pub fn css_module_struct_inline(tokens: TokenStream) -> TokenStream {
 
     let v = css_inner(true, CssEmbeding::CssModules)
         .unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
-    let struct_generated = v.generate_css_module(Some(ident.into()));
-    let style = v.to_string();
-    quote! {
-        #struct_generated;
+    return v.generate_css_module(Some(ident)).into();
+}
 
-        static #style_ident: &'static str = #style;
+#[proc_macro]
+pub fn css_module_mod(tokens: TokenStream) -> TokenStream {
+    let tokens: proc_macro2::TokenStream = tokens.into();
+    let mut token_iter = tokens.into_iter();
+    let ident = token_iter.next();
+    let Some(TokenTree::Ident(mod_name)) = ident else {
+        return quote_spanned! {
+            ident.span() =>
+            compile_error!("Expected struct name")
+        }
+        .into();
+    };
+
+    let eq = token_iter.next(); // =
+    let gt = token_iter.next(); // >
+    if !matches!(&eq, Some(TokenTree::Punct(p)) if p.as_char() == '=') {
+        return quote_spanned! {
+            eq.span()=>
+            compile_error!("Expected =>")
+        }
+        .into();
     }
-    .into()
+    if !matches!(&gt, Some(TokenTree::Punct(p)) if p.as_char() == '>') {
+        return quote_spanned! {
+            gt.span() =>
+            compile_error!("Expected =>")
+        }
+        .into();
+    }
+
+    let v = css_inner(true, CssEmbeding::CssModules)
+        .unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
+    let struct_generated = v.generate_css_module(Some(format_ident!("Css")));
+    let style = v.to_string();
+    let stream = quote! {
+        mod #mod_name {
+            #struct_generated
+
+            static STYLE: &'static str = #style;
+        }
+    };
+    stream.into()
 }
 
 /// Return None if macro input is invalid.

@@ -1,7 +1,7 @@
 
 [package]
 name = "rcss"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 description = "Rust CSS embedding library"
 authors = ["vldm <me@vldm.cc>"]
@@ -9,7 +9,6 @@ keywords = ["css", "html", "rsx", "macro", "parse"]
 repository = "https://github.com/rs-tml/rcss"
 readme = "README.md"
 license = "MIT"
-resolver = "2"
 include = ["/src", "../LICENSE"]
 
 
@@ -34,8 +33,29 @@ build-helper = [
     "dep:syn",
     "dep:rcss_core",
 ]
+
+# Note: in rcss_core, all backends can be enabled at once.
+# But in rcss_macro/rcss only one backend can be enabled at once.
+
 lightningcss = ["rcss_core/lightningcss", "rcss_macro/lightningcss"]
 # alias to lightningcss, because we have modname and crate name conflict
 lightning_css = ["lightningcss"]
 procss = ["rcss_core/procss", "rcss_macro/procss"]
 stylers = ["rcss_core/stylers", "rcss_macro/stylers"]
+[package.metadata.cargo-all-features]
+skip_feature_sets = [
+    [
+        "procss",
+        "lightningcss",
+    ],
+    [
+        "stylers",
+        "lightningcss",
+    ],
+    [
+        "procss",
+        "stylers",
+    ],
+    [
+    ],
+]

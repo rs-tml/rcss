@@ -24,6 +24,8 @@ quote = { workspace = true }
 [features]
 default = ["auto-snake-case", "indexed-classes"]
 
+# Note: in rcss_core, all backends can be enabled at once.
+# But in rcss_macro/rcss only one backend can be enabled at once.
 lightningcss = ["dep:lightningcss", "dep:parcel_selectors", "dep:cssparser"]
 procss = []
 stylers = ["dep:stylers_core"]
@@ -31,3 +33,11 @@ stylers = ["dep:stylers_core"]
 auto-snake-case = ["dep:Inflector"]
 indexed-classes = []
 macro-helper = []
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "backend-scoped"
+harness = false
+path = "benches/backend-scoped.rs"

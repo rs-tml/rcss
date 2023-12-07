@@ -11,8 +11,7 @@ fn test_compare_macro_and_build() {
 
     let cargo_dir = format!("{}/test_project", cargo_dir);
     let cargo_toml = format!("{cargo_dir}/Cargo.toml");
-    dbg!(&cargo_path);
-    dbg!(&cargo_dir);
+
     let expanded = Command::new(&cargo_path)
         .args(&["expand", "--ugly", "--manifest-path", &cargo_toml])
         .output()
@@ -38,8 +37,5 @@ fn test_compare_macro_and_build() {
     });
     let output = CssOutput::merge_to_string(&output);
     // panic!();
-    assert_eq!(
-        output,
-        format!(".my-valid.{class_name} {{\n  color: red;\n}}\n")
-    )
+    assert_eq!(output, format!(".my-valid.{class_name}{{color:red}}"))
 }

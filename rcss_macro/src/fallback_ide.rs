@@ -13,9 +13,12 @@ pub fn parse(input: TokenStream) -> CssOutput {
     let Ok(v) = std::env::var("RUST_ANALYZER_INTERNALS_DO_NOT_USE") else {
         panic!("fallback only available for rust-analyzer, for regular source_text should be available")
     };
-    if v == "this is unstable" {
+    if v != "this is unstable" {
         panic!("RUST_ANALYZER_INTERNALS_DO_NOT_USE is not set")
     }
+    parse_inner(input)
+}
+fn parse_inner(input: TokenStream) -> CssOutput {
     let mut stack = vec![input];
     let mut classes = Vec::new();
     while let Some(input) = stack.pop() {
@@ -137,7 +140,7 @@ mod test {
         }
         
         "#;
-        let output = super::parse(input.parse().unwrap());
+        let output = super::parse_inner(input.parse().unwrap());
         let elements_list = output.classes_list().collect::<Vec<_>>();
         let mut expected_list = vec![
             "my-class",
@@ -165,7 +168,7 @@ mod test {
         
         
         "#;
-        let output = super::parse(input.parse().unwrap());
+        let output = super::parse_inner(input.parse().unwrap());
         let elements_list = output.classes_list().collect::<Vec<_>>();
         let mut expected_list = vec!["my-class", "my-class2"];
         expected_list.sort();
