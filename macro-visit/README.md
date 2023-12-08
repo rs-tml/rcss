@@ -1,13 +1,12 @@
-Simple helper to register macro handler and process their input from build.rs
-Currentyl support only function-like macro.
+Simple helper to register macro handler and process their input from build.rs Currently supports only function-like macro.
 
-Usefull when your macro should output file, but you want to avoid race conditions during incremental compiliation and other routines.
+Useful when your macro should output a file, but you want to avoid race conditions during incremental compilation and other routines.
 
-Uses [syn](https://crates.io/crates/syn) to parse file and visit their macros.
+Uses [`syn`](https://crates.io/crates/syn) to parse files and visit their macros.
 
 
-Imagine you have some macro `css` that implement scoping css technic.
-It process css syntax and return css_class. But you also need to agregate all `css!` calls and save them into `style.css`
+Imagine you have some macro `css` that implements scoping css technic.
+It processes CSS syntax and returns css_class. But you also need to aggregate all `css`!` calls and save them into `style.css`
 ```rust
 fn main() {
     use rcss::css as my_css;
@@ -23,11 +22,11 @@ fn main() {
 }
 
 ```
-In order to agregate all css, you should open all src files,
-find if css! was used and handle their input.
+In order to aggregate all CSS, you should open all src files,
+find if `css!`` was used and handle their input.
 You also should handle imports and renames.
 
-Target of this crate is to deal with this problems.
+The target of this crate is to deal with these problems.
 
 In build.rs
 ```rust
@@ -52,7 +51,7 @@ fn main () {
 
 ```
 
-`macro-visit` will find all occurences of css macro, even if it was renamed.
-Currently it only looks for imports inside one file at time, and does not parallelize file processing.
+`macro-visit` will find all occurrences of `css!` macro, even if it was renamed.
+Currently, it only looks for imports inside one file at a time, and does not parallelize file processing.
 
 
