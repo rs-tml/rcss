@@ -23,39 +23,10 @@ pretty_assertions = "1.4"
 
 
 [features]
-default = ["build-helper", "lightningcss"]
+default = ["build-helper"]
 build-helper = [
     "dep:macro-visit",
     "dep:proc-macro2",
     "dep:syn",
     "dep:rcss-core",
-]
-
-# Note: in rcss-core, all backends can be enabled at once.
-# But in rcss-macro/rcss only one backend can be enabled at once.
-
-lightningcss = ["rcss-core/lightningcss", "rcss-macro/lightningcss"]
-# alias to lightningcss, because we have modname and crate name conflict
-lightning_css = ["lightningcss"]
-procss = ["rcss-core/procss", "rcss-macro/procss"]
-stylers = ["rcss-core/stylers", "rcss-macro/stylers"]
-
-# Avoid using multiple backends at once, because macro api is limited to only one.
-# And avoid using rcss without any backend.
-[package.metadata.cargo-all-features]
-skip_feature_sets = [
-    [
-        "procss",
-        "lightningcss",
-    ],
-    [
-        "stylers",
-        "lightningcss",
-    ],
-    [
-        "procss",
-        "stylers",
-    ],
-    [
-    ],
 ]

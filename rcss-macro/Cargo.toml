@@ -23,12 +23,6 @@ rcss-core = { workspace = true, features = ["macro-helper"] }
 [features]
 default = []
 
-# Note: in rcss-core, all backends can be enabled at once.
-# But in rcss-macro/rcss only one backend can be enabled at once.
-lightningcss = ["rcss-core/lightningcss"]
-procss = ["rcss-core/procss"]
-stylers = ["rcss-core/stylers"]
-
 
 [package.metadata.cargo-all-features]
 skip_feature_sets = [

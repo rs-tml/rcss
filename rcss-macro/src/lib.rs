@@ -2,28 +2,19 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 
-use rcss_core::{self, macro_helper::macro_input, CssEmbeding, CssOutput};
+use rcss_core::{self, macro_helper::macro_input, CssOutput};
 use syn::spanned::Spanned;
-
-#[cfg(any(
-    all(feature = "lightningcss", feature = "postcss"),
-    all(feature = "lightningcss", feature = "stylers"),
-    all(feature = "postcss", feature = "stylers")
-))]
-compile_error!("Can't use more than one css processor at the same time");
 
 mod fallback_ide;
 
 #[proc_macro]
 pub fn css_module(tokens: TokenStream) -> TokenStream {
-    let v = css_inner(false, CssEmbeding::CssModules)
-        .unwrap_or_else(|| fallback_ide::parse(tokens.into()));
+    let v = css_inner(false).unwrap_or_else(|| fallback_ide::parse(tokens.into()));
     v.generate_css_module(None).into()
 }
 #[proc_macro]
 pub fn css_module_inline(tokens: TokenStream) -> TokenStream {
-    let v = css_inner(false, CssEmbeding::CssModules)
-        .unwrap_or_else(|| fallback_ide::parse(tokens.into()));
+    let v = css_inner(false).unwrap_or_else(|| fallback_ide::parse(tokens.into()));
 
     let module = v.generate_css_module(None);
     let style = v.style_string();
@@ -45,8 +36,7 @@ pub fn css_module_inline(tokens: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn css_scoped(tokens: TokenStream) -> TokenStream {
-    let v =
-        css_inner(false, CssEmbeding::Scoped).unwrap_or_else(|| fallback_ide::parse(tokens.into()));
+    let v = css_inner(false).unwrap_or_else(|| fallback_ide::parse(tokens.into()));
     let class_name = v.class_name();
     quote! {
 
@@ -57,7 +47,7 @@ pub fn css_scoped(tokens: TokenStream) -> TokenStream {
 }
 #[proc_macro]
 pub fn css_scoped_inline(_tokens: TokenStream) -> TokenStream {
-    if let Some(v) = css_inner(false, CssEmbeding::Scoped) {
+    if let Some(v) = css_inner(false) {
         let class_name = v.class_name();
         let style = v.style_string();
 
@@ -114,8 +104,7 @@ pub fn css_module_struct(tokens: TokenStream) -> TokenStream {
         .into();
     }
 
-    let v = css_inner(true, CssEmbeding::CssModules)
-        .unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
+    let v = css_inner(true).unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
     v.generate_css_module(Some(ident)).into()
 }
 
@@ -149,8 +138,7 @@ pub fn css_module_mod(tokens: TokenStream) -> TokenStream {
         .into();
     }
 
-    let v = css_inner(true, CssEmbeding::CssModules)
-        .unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
+    let v = css_inner(true).unwrap_or_else(|| fallback_ide::parse(token_iter.collect()));
     let struct_generated = v.generate_css_module(Some(format_ident!("Css")));
     let style = v.style_string();
     let stream = quote! {
@@ -165,11 +153,9 @@ pub fn css_module_mod(tokens: TokenStream) -> TokenStream {
 
 /// Return None if macro input is invalid.
 /// Or if source_text is not found.
-fn css_inner(struct_ident_expected: bool, embeding: CssEmbeding) -> Option<CssOutput> {
+fn css_inner(struct_ident_expected: bool) -> Option<CssOutput> {
     let text = Span::call_site().source_text()?;
     let text = macro_input(&text, struct_ident_expected)?;
-    let mut processor =
-        rcss_core::CssProcessor::new(rcss_core::CssPreprocessor::LightningCss, embeding);
-    let output = processor.process_style(&text);
+    let output = rcss_core::CssProcessor::process_style(&text);
     Some(output)
 }
