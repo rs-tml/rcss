@@ -29,11 +29,7 @@ fn test_compare_macro_and_build() {
     // panic!("expanded: {}", expanded);
 
     let output = rcss::build_helper::process_styles(&cargo_dir, |s| {
-        rcss_core::CssProcessor::new(
-            rcss_core::CssPreprocessor::LightningCss,
-            rcss_core::CssEmbeding::Scoped,
-        )
-        .process_style(s)
+        rcss_core::CssProcessor::process_style(s).unwrap()
     });
     let output = CssOutput::merge_to_string(&output);
     // panic!();

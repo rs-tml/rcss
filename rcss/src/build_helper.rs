@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use std::{cell::RefCell, path::Path, rc::Rc};
+use std::{cell::RefCell, path::Path};
 use syn::spanned::Spanned;
 
 use macro_visit::Visitor;
@@ -26,20 +26,6 @@ where
 
     let collect_style = RefCell::new(Vec::new());
 
-    let css_struct_handler = |input: TokenStream| {
-        let mut stream = input.into_iter();
-        // skip struct name
-        stream.next(); // Foo
-        stream.next(); // =
-        stream.next(); // >
-        let token_stream = stream.collect::<TokenStream>();
-        let source_text = token_stream
-            .span()
-            .source_text()
-            .expect("cannot find source text for macro call");
-
-        collect_style.borrow_mut().push(preprocessor(&source_text));
-    };
     let css_handler = |token_stream: TokenStream| {
         let source_text = token_stream
             .span()
@@ -49,16 +35,9 @@ where
     };
     let mut visitor = Visitor::new();
 
-    let css_struct_paths = vec![format!("{crate_name}::file::css_module::css_struct")];
-    let css_struct = css_struct_handler;
-    visitor.add_macro(css_struct_paths, css_struct);
+    let css_struct_paths = vec![format!("{crate_name}::css")];
+    visitor.add_macro(css_struct_paths, css_handler);
 
-    let css = Rc::new(RefCell::new(css_handler));
-    let css_scope_paths = vec![format!("{crate_name}::file::scoped::css")];
-    visitor.add_rc_macro(css_scope_paths, css.clone());
-
-    let css_module_paths = vec![format!("{crate_name}::file::css_module::css")];
-    visitor.add_rc_macro(css_module_paths, css);
     visitor.visit_project(project_path);
     collect_style.into_inner()
 }

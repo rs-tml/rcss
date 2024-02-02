@@ -1,5 +1,5 @@
 [workspace]
-members = ["rcss", "rcss-core", "build_rs_test", "rcss-macro", "macro-visit"]
+members = ["rcss", "rcss-core", "build_rs_test", "rcss-macro", "macro-visit", "test-usage", "check-bin-size", "leptos-rcss"]
 exclude = ["build_rs_test/tested_project"]
 resolver = "2"
 
@@ -11,6 +11,7 @@ syn = { version = "2.0.15", features = [
     "extra-traits",
 ] }
 quote = "1.0.9"
+thiserror = "1.0"
 proc-macro2 = { version = "1.0.69", features = ["span-locations"] }
 glob = { version = "0.3.0" }
 

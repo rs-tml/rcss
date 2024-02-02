@@ -8,14 +8,14 @@ authors = ["vldm <me@vldm.cc>"]
 keywords = ["css", "html", "rsx", "macro", "parse"]
 repository = "https://github.com/rs-tml/rcss"
 readme = "../README.md"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 include = ["/src", "../LICENSE"]
 
 [dependencies]
+rcss-macro = { workspace = true }
 syn = { workspace = true, optional = true }
 proc-macro2 = { workspace = true, optional = true }
 rcss-core = { workspace = true, optional = true }
-rcss-macro = { workspace = true }
 macro-visit = { workspace = true, optional = true }
 
 [dev-dependencies]

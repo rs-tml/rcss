@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use lightningcss::{
     properties::custom::{TokenList, TokenOrValue},
+    rules::CssRule,
     selector::{Component, PseudoClass, Selector},
     stylesheet::{ParserOptions, PrinterOptions},
     traits::{ParseWithOptions, ToCss as _},
@@ -10,6 +11,8 @@ use lightningcss::{
     visitor::{VisitTypes, Visitor},
 };
 use thiserror::Error;
+
+use crate::rcss_at_rule::RcssAtRuleConfig;
 
 pub(crate) struct SelectorVisitor {
     // Input:
@@ -20,6 +23,11 @@ pub(crate) struct SelectorVisitor {
     // Output:
     // List of classes used in selectors.
     pub collect_classes: BTreeMap<String, String>,
+    // If found macro should extend existing style from path.
+    pub extend: Option<syn::Path>,
+    // If found macro should emit mod instead of inline struct.
+    pub declare: Option<syn::ItemStruct>,
+
     // State:
     pub state: SelectorState,
 }
@@ -40,7 +48,7 @@ impl SelectorState {
 }
 
 #[derive(Error, Debug)]
-pub enum MyError {
+pub enum Error {
     #[error("Failed to print token as css")]
     PrintFailed(#[from] lightningcss::error::PrinterError),
     #[error("Failed to parse token as css selector")]
@@ -50,7 +58,7 @@ pub enum MyError {
 }
 
 impl SelectorVisitor {
-    fn token_list_to_selector<'i>(token_list: TokenList<'i>) -> Result<Selector<'i>, MyError> {
+    fn token_list_to_selector<'i>(token_list: TokenList<'i>) -> Result<Selector<'i>, Error> {
         let mut result = String::new();
         for token in token_list.0 {
             match token {
@@ -78,16 +86,16 @@ impl SelectorVisitor {
                 TokenOrValue::Url(ref url) => {
                     result.push_str(&url.to_css_string(PrinterOptions::default())?)
                 }
-                _ => return Err(MyError::NotAllowedToken(format!("{:?}", token))),
+                _ => return Err(Error::NotAllowedToken(format!("{:?}", token))),
             }
         }
         let selector = Selector::parse_string_with_options(&result, ParserOptions::default())
-            .map_err(|e| MyError::ParseError(format!("{:?}", e)))?;
+            .map_err(|e| Error::ParseError(format!("{:?}", e)))?;
         use lightningcss::traits::IntoOwned;
 
         Ok(selector.into_owned())
     }
-    fn try_modify_parts(&mut self, selectors: &mut Selector<'_>) -> Result<(), MyError> {
+    fn try_modify_parts(&mut self, selectors: &mut Selector<'_>) -> Result<(), Error> {
         let class_name = self.append_class.clone();
 
         // Iterate over selector components
@@ -171,7 +179,7 @@ impl SelectorVisitor {
         state: &SelectorState,
         selector_components: &mut Vec<Component>,
         class_name: &String,
-    ) -> Result<(), MyError> {
+    ) -> Result<(), Error> {
         // append class only if not in :deep and :global
         if !state.deep_selector && !state.global_selector {
             selector_components.push(Component::Class(class_name.clone().into()));
@@ -182,7 +190,7 @@ impl SelectorVisitor {
         &mut self,
         selector_components: &mut Vec<Component<'i>>,
         selector: &mut Selector<'i>,
-    ) -> Result<(), MyError> {
+    ) -> Result<(), Error> {
         let mut child_state = self.state.clone();
         child_state.global_selector = true;
         std::mem::swap(&mut self.state, &mut child_state);
@@ -197,7 +205,7 @@ impl SelectorVisitor {
         &mut self,
         selector_components: &mut Vec<Component<'i>>,
         selector: &mut Selector<'i>,
-    ) -> Result<(), MyError> {
+    ) -> Result<(), Error> {
         let mut child_state = self.state.clone();
         child_state.deep_selector = true;
         std::mem::swap(&mut self.state, &mut child_state);
@@ -208,18 +216,27 @@ impl SelectorVisitor {
         self.state.class_found = true;
         Ok(())
     }
-    fn modify_classes(&mut self, class: &mut Ident<'_>) -> Result<(), MyError> {
+    fn modify_classes(&mut self, class: &mut Ident<'_>) -> Result<(), Error> {
         let class_string = class.to_css_string(PrinterOptions::default())?;
         let modified = (*self.class_modify)(class_string.clone());
         self.collect_classes.insert(class_string, modified.clone());
         *class = modified.into();
         Ok(())
     }
+    fn save_rcss_rule(&mut self, rcss_rule: RcssAtRuleConfig) {
+        // TODO: Emit error on multiple rcss rules
+        match rcss_rule {
+            RcssAtRuleConfig::Struct(item_struct) => self.declare = Some(item_struct),
+            RcssAtRuleConfig::Extend(path) => self.extend = Some(path),
+        }
+    }
 }
-impl<'i> lightningcss::visitor::Visitor<'i> for SelectorVisitor {
-    type Error = MyError;
+impl<'i> lightningcss::visitor::Visitor<'i, crate::rcss_at_rule::RcssAtRuleConfig>
+    for SelectorVisitor
+{
+    type Error = Error;
     fn visit_types(&self) -> VisitTypes {
-        visit_types!(SELECTORS)
+        visit_types!(SELECTORS | RULES)
     }
 
     fn visit_selector(&mut self, fragment: &mut Selector<'i>) -> Result<(), Self::Error> {
@@ -227,6 +244,22 @@ impl<'i> lightningcss::visitor::Visitor<'i> for SelectorVisitor {
         self.state.class_found = false;
         self.try_modify_parts(fragment)?;
 
+        Ok(())
+    }
+    fn visit_rule(
+        &mut self,
+        rule: &mut CssRule<'i, crate::rcss_at_rule::RcssAtRuleConfig>,
+    ) -> Result<(), Self::Error> {
+        match rule {
+            CssRule::Custom(rcss) => {
+                self.save_rcss_rule(rcss.clone());
+                *rule = CssRule::Ignored;
+            }
+            rule => {
+                use lightningcss::visitor::Visit;
+                rule.visit_children(self)?;
+            }
+        }
         Ok(())
     }
 }

@@ -6,7 +6,7 @@ description = "RCSS - (macro) implementation of proc macros."
 authors = ["vldm <me@vldm.cc>"]
 keywords = ["css", "html", "rsx", "macro", "parse"]
 repository = "https://github.com/rs-tml/rcss"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 include = ["/src", "../LICENSE"]
 
 [lib]
@@ -18,26 +18,14 @@ proc-macro = true
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
-rcss-core = { workspace = true, features = ["macro-helper"] }
+thiserror = { workspace = true }
+rcss-core = { workspace = true }
+
+Inflector = { workspace = true, optional = true }
 
 [features]
-default = []
-
-
-[package.metadata.cargo-all-features]
-skip_feature_sets = [
-    [
-        "procss",
-        "lightningcss",
-    ],
-    [
-        "stylers",
-        "lightningcss",
-    ],
-    [
-        "procss",
-        "stylers",
-    ],
-    [
-    ],
-]
+# Note: in rcss-core, all backends can be enabled at once.
+# But in rcss-macro/rcss only one backend can be enabled at once.
+default = ["auto-snake-case", "indexed-classes"]
+auto-snake-case = ["dep:Inflector"]
+indexed-classes = []

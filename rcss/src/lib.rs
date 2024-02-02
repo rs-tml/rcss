@@ -41,20 +41,6 @@ pub mod build_helper;
 /// assert_eq!(html, "<style>.my-class-xxTX{color:red}</style>\n\
 /// <div class=\"my-class-xxTX\">Hello</div>");
 /// ```
-pub use rcss_macro::css_module_inline as css;
-/// Generate module with css classes object named Css and static variable
-/// STYLE with style string.
-/// Uses ident from first macro argument as module name.
-/// Expect arrow '=>' after module name.
-///
-/// Example:
-/// ```rust
-/// rcss::inline::css_modules::css_mod! {
-/// module =>
-///     .my-class {
-///         color: red;
-///     }
-/// }
-/// ```
-///
-pub use rcss_macro::css_module_mod as css_mod;
+pub use rcss_macro::css;
+mod types;
+pub use types::*;
