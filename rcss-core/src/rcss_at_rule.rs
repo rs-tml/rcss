@@ -90,8 +90,8 @@ impl<'i> AtRuleParser<'i> for RcssAtRuleParser {
 
         let stream = stream.trim();
 
-        let tokens = proc_macro2::TokenStream::from_str(stream)
-            .map_err(|e| dbg!(input.new_custom_error(e)))?;
+        let tokens =
+            proc_macro2::TokenStream::from_str(stream).map_err(|e| input.new_custom_error(e))?;
 
         RcssAtRuleConfig::from_token_stream(tokens).map_err(|e| input.new_custom_error(e))
     }

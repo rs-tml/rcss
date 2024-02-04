@@ -1,4 +1,4 @@
-use std::iter::Peekable;
+use std::{collections::BTreeMap, iter::Peekable};
 
 use proc_macro2::{Literal, TokenTree};
 
@@ -75,23 +75,28 @@ pub trait CssOutputGenerateExt {
     fn generate(&self) -> proc_macro2::TokenStream;
 }
 
+#[derive(PartialEq, PartialOrd, Ord, Eq, Debug)]
+enum Key {
+    Valid(String),
+    Replaced { original: String, replaced: String },
+}
+impl Key {
+    fn field_str(&self) -> &str {
+        match self {
+            Key::Valid(s) => &*s,
+            Key::Replaced { replaced, .. } => &*replaced,
+        }
+    }
+    fn original(&self) -> &str {
+        match self {
+            Key::Valid(s) => &*s,
+            Key::Replaced { original, .. } => &*original,
+        }
+    }
+}
+
 impl CssOutputGenerateExt for rcss_core::CssOutput {
     fn generate(&self) -> proc_macro2::TokenStream {
-        fn is_valid_rust_ident(ident: &str) -> bool {
-            let mut chars = ident.chars();
-            match chars.next() {
-                Some(c) if c.is_alphabetic() || c == '_' => {}
-                _ => return false,
-            }
-            for c in chars {
-                if !c.is_alphanumeric() && c != '_' {
-                    return false;
-                }
-            }
-            true
-        }
-
-        // dbg!(&self);
         #[allow(unused_mut)] //used in feature
         let mut changed_classes = self.classes_map().clone();
         #[cfg(feature = "auto-snake-case")]
@@ -108,153 +113,274 @@ impl CssOutputGenerateExt for rcss_core::CssOutput {
             }
         }
 
-        let field_classes = changed_classes.iter().filter_map(|(k, _v)| {
-            if is_valid_rust_ident(k) {
-                Some(quote::format_ident!("{}", k))
-            } else {
-                None
-            }
-        });
-
-        let field_classes_literals_match = changed_classes.iter().filter_map(|(k, _v)| {
-            if is_valid_rust_ident(k) {
-                let val: proc_macro2::Ident = quote::format_ident!("{}", k);
-                Some(quote::quote! {
-                    #k => self.#val,
-                })
-            } else {
-                None
-            }
-        });
-
-        let field_init = changed_classes
-            .iter()
-            .filter(|(k, _)| is_valid_rust_ident(k))
+        let changed_classes: BTreeMap<_, _> = changed_classes
+            .into_iter()
             .map(|(k, v)| {
-                let span = v.original_span.unwrap_or(proc_macro2::Span::call_site());
-                let k = quote::format_ident!("{}", k, span = span);
-                let v = Literal::string(&v.class_name);
-                quote::quote! {
-                    #k: #v,
+                if !is_valid_rust_ident(&k) {
+                    let new_key = format!("__kebab__{}", k.replace("-", "_k_"));
+                    assert!(is_valid_rust_ident(&new_key));
+                    (
+                        Key::Replaced {
+                            original: k,
+                            replaced: new_key,
+                        },
+                        v,
+                    )
+                } else {
+                    (Key::Valid(k), v)
                 }
-            });
+            })
+            .collect();
 
-        let kebab_map_init = changed_classes
-            .iter()
-            .filter(|(k, _)| !is_valid_rust_ident(k))
-            .map(|(k, v)| {
-                let k = Literal::string(k);
-                let v = Literal::string(&v.class_name);
-                quote::quote! {
-                    map.insert(#k, #v);
-                }
-            });
-
-        // TODO: Add rcss-atrule for this
-        let vis = self
-            .declare()
-            .map(|s| s.vis)
-            .unwrap_or(syn::parse_quote! { pub });
-
-        let _struct = self
-            .declare()
-            .map(|s| s.struct_token)
-            .unwrap_or(syn::parse_quote! { struct });
         let struct_ident = self
             .declare()
             .map(|s| s.ident)
             .unwrap_or(syn::parse_quote! { Css });
-        let struct_ident = quote::format_ident!("Css");
-        let index_impl = if cfg!(feature = "indexed-classes") {
-            quote::quote! {
-                impl<'a> std::ops::Index<&'a str> for #struct_ident {
-                    type Output = str;
-                    fn index(&self, index: &'a str) -> &Self::Output {
-                        match index {
-                            #(#field_classes_literals_match)*
-                            other => self
-                                .__kebab_styled
-                                .get(other)
-                                .expect(&format!("No class with name {} found in css module", other)),
-                        }
-                    }
-                }
-            }
-        } else {
-            quote::quote! {}
-        };
+
+        let index_match_fields = changed_classes.iter().filter_map(|(k, _v)| {
+            let val: proc_macro2::Ident = quote::format_ident!("{}", k.field_str());
+            let idx = k.original();
+            Some(quote::quote! {
+                #idx => self.#val,
+            })
+        });
+
         let uniq_class = self.class_name();
 
         let style: String = self.style_string();
+
+        let vis_struct = self
+            .declare()
+            .map(|s| {
+                let vis = &s.vis;
+                let struct_ = &s.struct_token;
+                quote::quote!(#vis #struct_)
+            })
+            .unwrap_or(quote::quote! { pub struct });
+
         // TODO: find a way to warn on generated dead code (fields that wasn't accessed).
-        let mut struct_impl = quote::quote! {
-
-                #vis #_struct #struct_ident {
-                    #(pub #field_classes: &'static str,)*
-                    __scoped_class: &'static str,
-                    __kebab_styled: std::collections::BTreeMap<&'static str, &'static str>,
+        let mut struct_impl = if let Some(extend) = self.extend() {
+            let root_field_init = changed_classes.iter().map(|(k, v)| {
+                let span = v.original_span.unwrap_or(proc_macro2::Span::call_site());
+                let k = quote::format_ident!("{}", k.field_str(), span = span);
+                let v = Literal::string(&v.class_name);
+                quote::quote! {
+                    root.#k = ::rcss::reexport::const_format::concatcp!(ROOT.#k, " ", #v)
                 }
-                impl #struct_ident {
-                    pub fn new() -> Self {
-                        let mut map = std::collections::BTreeMap::new();
-                        #(#kebab_map_init)*
-                        Self {
-                            __kebab_styled:map,
-                            ..Self::new_without_dashed_idents()
-                        }
-                    }
-
-                    pub const fn new_without_dashed_idents() -> Self {
-                        Self {
-                            #(#field_init)*
-                            __scoped_class: #uniq_class,
-                            __kebab_styled: std::collections::BTreeMap::new(),
-                        }
-                    }
-
-                    pub fn scoped_class(&self) -> &'static str {
-                        self.__scoped_class
-                    }
-                    #[doc(hidden)]
-                    pub fn dashed_map(&self) -> &std::collections::BTreeMap<&'static str, &'static str> {
-                        &self.__kebab_styled
-                    }
-                    /// Creates new css module.
-                    /// For classes that is valid rust ident, it will use default class name.
-                    /// Extend rest with provided map.
-                    pub fn with_extension(scoped: &'static str, map: std::collections::BTreeMap<&'static str, &'static str>) -> Self {
-                        let mut new = Self::new();
-                        new.__scoped_class = scoped;
-                        std::iter::Extend::extend(&mut new.__kebab_styled, map);
-                        new
-                    }
-
+            });
+            generate_child_struct(
+                vis_struct,
+                &struct_ident,
+                extend,
+                &style,
+                &uniq_class,
+                root_field_init,
+            )
+        } else {
+            let field_init_struct = changed_classes.iter().map(|(k, v)| {
+                let span = v.original_span.unwrap_or(proc_macro2::Span::call_site());
+                let k = quote::format_ident!("{}", k.field_str(), span = span);
+                let v = Literal::string(&v.class_name);
+                quote::quote! {
+                    #k: #v
                 }
-                impl ::rcss::CssCommon for #struct_ident {
-                    const BASIC_STYLE: &'static str = #style;
-                    const BASIC_SCOPE: &'static str = #uniq_class;
-                    fn basic() -> #struct_ident
-                    where Self:Sized
-                    {
-                        #struct_ident::new()
-                    }
-                    fn scoped_class(&self) -> &'static str {
-                        self.scoped_class()
-                    }
+            });
+            let field_classes = changed_classes.iter().map(|(k, _v)| {
+                let field = quote::format_ident!("{}", k.field_str());
+                let pub_ = if matches!(k, Key::Valid(_)) {
+                    quote::quote! { pub }
+                } else {
+                    quote::quote! { #[doc(hidden)] pub}
+                };
+                quote::quote! {
+                    #pub_ #field
                 }
-                #index_impl
+            });
+            generate_root_struct(
+                vis_struct,
+                &struct_ident,
+                &style,
+                &uniq_class,
+                index_match_fields,
+                field_classes,
+                field_init_struct,
+            )
         };
-
         // Convert to expression if it's not a declaration
         if self.declare().is_none() {
             struct_impl = quote::quote! {
                 {
                 #struct_impl
-                    ::rcss::CssWithStyle::new(#struct_ident::new(), #style)
+                   #struct_ident::new()
                 }
             };
         };
 
         struct_impl
     }
+}
+
+fn generate_root_struct(
+    vis_struct: proc_macro2::TokenStream,
+    struct_ident: &proc_macro2::Ident,
+    style: &str,
+    uniq_class: &str,
+    index_match_fields: impl Iterator<Item = proc_macro2::TokenStream>,
+    field_classes: impl Iterator<Item = proc_macro2::TokenStream>,
+    field_init: impl Iterator<Item = proc_macro2::TokenStream>,
+) -> proc_macro2::TokenStream {
+    let index_impl = if cfg!(feature = "indexed-classes") {
+        quote::quote! {
+            impl<'a> std::ops::Index<&'a str> for #struct_ident {
+                type Output = str;
+                fn index(&self, index: &'a str) -> &Self::Output {
+                    match index {
+                        #(#index_match_fields)*
+                        _ => panic!("Has no such key"),
+                    }
+                }
+            }
+        }
+    } else {
+        quote::quote! {}
+    };
+
+    quote::quote! {
+        // allow non_snake_case for `__kebab__baz_k_2` style fields
+        #[allow(non_snake_case)]
+        #[derive(Debug, Copy, Clone)]
+        #vis_struct #struct_ident {
+            #(#field_classes: &'static str),*
+        }
+        impl #struct_ident {
+
+            pub fn new() -> Self {
+                Self::new_root()
+            }
+
+            /// Const fn is not stabilized in traits, so we use it in structure.
+            /// Methods new_root is used to create constant time root object, and modify thier content.
+            /// It allow us to have resulted css object on compile time.
+            ///
+            ///
+            /// TODO: Later when const trait will be stabilized we can move it into ScopeChain trait.
+            pub const fn new_root() -> Self {
+                Self {
+                    #(#field_init),*
+                }
+            }
+
+
+        }
+        impl Default for #struct_ident {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+
+        impl ::rcss::ScopeCommon for #struct_ident {
+            const STYLE: &'static str = #style;
+            const SCOPE_ID: &'static str = #uniq_class;
+        }
+
+        impl ::rcss::extend::ScopeChain for #struct_ident {
+            type Parent = ::std::convert::Infallible;
+            type Root = Self;
+        }
+        #index_impl
+    }
+}
+
+fn generate_child_struct(
+    vis_struct: proc_macro2::TokenStream,
+    struct_ident: &proc_macro2::Ident,
+    path_to_parent: syn::Path,
+    style: &str,
+    uniq_class: &str,
+    field_init: impl Iterator<Item = proc_macro2::TokenStream>,
+) -> proc_macro2::TokenStream {
+    quote::quote! {
+
+
+
+        #[derive(Debug, Copy, Clone)]
+        #vis_struct #struct_ident (#path_to_parent);
+        impl #struct_ident {
+
+            pub fn new() -> Self {
+                let root = Self::new_root();
+                root.into()
+            }
+
+            /// Const fn is not stabilized in traits, so we use it in structure.
+            /// Methods new_root is used to create constant time root object, and modify thier content.
+            /// It allow us to have resulted css object on compile time.
+            ///
+            ///
+            /// TODO: Later when const trait will be stabilized we can move it into ScopeChain trait.
+            pub const fn new_root() -> <Self as ::rcss::extend::ScopeChain>::Root {
+                const ROOT: <#struct_ident as ::rcss::extend::ScopeChain>::Root = <#struct_ident as ::rcss::extend::ScopeChain>::Root::new_root();
+                let mut root = ROOT;
+                #(#field_init;)*
+                root
+            }
+
+        }
+
+
+        impl std::ops::Deref for #struct_ident {
+            type Target = #path_to_parent;
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+        impl std::ops::DerefMut for #struct_ident {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
+
+        impl Default for #struct_ident {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+
+        impl ::rcss::ScopeCommon for #struct_ident {
+            const STYLE: &'static str = #style;
+            const SCOPE_ID: &'static str = #uniq_class;
+        }
+
+
+        impl ::rcss::extend::ScopeChain for #struct_ident {
+            type Parent = #path_to_parent;
+            type Root = <Self::Parent as ::rcss::extend::ScopeChain>::Root;
+        }
+
+        impl From<#struct_ident> for <#struct_ident as ::rcss::extend::ScopeChain>::Root {
+            fn from(v: #struct_ident) -> Self {
+                v.0.into()
+            }
+        }
+
+        impl From<<#struct_ident as ::rcss::extend::ScopeChain>::Root> for #struct_ident {
+            fn from(v: <#struct_ident as ::rcss::extend::ScopeChain>::Root) -> Self {
+                Self(v.into())
+            }
+        }
+    }
+}
+
+fn is_valid_rust_ident(ident: &str) -> bool {
+    let mut chars = ident.chars();
+    match chars.next() {
+        Some(c) if c.is_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    for c in chars {
+        if !c.is_alphanumeric() && c != '_' {
+            return false;
+        }
+    }
+    true
 }

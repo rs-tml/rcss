@@ -28,31 +28,31 @@ impl LayeredCssMeta {
     }
 }
 pub type StyleId = &'static str;
-
+pub type Order = u32;
+/// Store chain of extensions.
+/// Order of layers is determined by how far a layer is from root.
 #[derive(Default, Clone, Debug)]
 pub struct LayeredCss {
     // Style by id of its layer
-    pub layers: BTreeMap<StyleId, String>,
+    pub layers: BTreeMap<StyleId, (Order, String)>,
 }
 
-pub fn append_layer_effect(css_uniq_class: StyleId, new_layer: StyleId, layer_impl: String) {
+pub fn append_layer_effect(
+    css_uniq_class: StyleId,
+    new_layer: StyleId,
+    layer_impl: (Order, String),
+) {
     create_effect(move |_| {
         let layered_css_meta = LayeredCssMeta::get();
         let css_uniq_class = css_uniq_class;
         let new_layer = new_layer;
         let layer_impl = layer_impl.clone();
-        console_log(
-            format!(
-                "Appending layer {} to {}, style ={} ",
-                new_layer, css_uniq_class, layer_impl
-            )
-            .as_str(),
-        );
         layered_css_meta.styles.update(move |style| {
             style
                 .entry(css_uniq_class)
                 .or_insert_with(Default::default)
                 .layers
+                // TODO: assert if on same layer received different order
                 .insert(new_layer, layer_impl);
         });
     });
@@ -71,36 +71,51 @@ pub(crate) fn custom_style(id: StyleId, style: LayeredCss) -> impl IntoView {
     });
 
     let builder_el = if !style.layers.is_empty() {
-        // make sure that default unique class is layer 0 (lesser priority)
-        let default_layer = style.layers.get(id).cloned().unwrap_or("".to_string());
-        let rest = style.layers.into_iter().filter(|(layer, _)| *layer != id);
-        let layer_iter = Some((id, default_layer)).into_iter().chain(rest);
-
-        let mut header = String::new();
-        let mut body = String::new();
-        header.push_str("@layer ");
-        let not_default = |header: &str| header.len() > 7;
-        // Push all layer declaration to header
-        for (layer, layer_impl) in layer_iter {
-            console_log(
-                format!(
-                    "Processing layer {} in {}, style ={} ",
-                    layer, id, layer_impl
-                )
-                .as_str(),
-            );
-            // Push all layer declaration to header
-            if not_default(&header) {
-                header.push_str(",");
-            }
-            header.push_str(layer);
-
-            // push each individual to a body
-            body.push_str(format!("@layer {} {{\n", layer).as_str());
-            body.push_str(layer_impl.as_str());
-            body.push_str("}\n");
+        let default_layer = style.layers.get(id).cloned();
+        let mut rest = style.layers.iter().filter(|(layer, _)| **layer != id);
+        // No default layer registered, just return style without layers
+        if default_layer.is_none() {
+            return meta.tags.register(id.into(), builder_el.into_any());
         }
-        header.push_str(";\n");
+
+        if rest.next().is_none() {
+            // if no other layers just return plain css without layers.
+            return meta.tags.register(
+                id.into(),
+                builder_el.child(default_layer.unwrap().1).into_any(),
+            );
+        }
+
+        let mut ordered_layers: Vec<_> = style
+            .layers
+            .into_iter()
+            .map(|(layer, (order, style))| (order, layer, style))
+            .collect();
+        console_log(format!("ordered_layers {:?}", &ordered_layers).as_str());
+        ordered_layers.sort_by_key(|(order, _, _)| *order);
+        // Make sure that default layer is always first
+        debug_assert_eq!(ordered_layers.first().unwrap().1, id);
+
+        let mut header = ordered_layers.iter().map(|(_, scope_id, _)| scope_id).fold(
+            String::from("@layer "),
+            |mut header, scope_id| {
+                header.push_str(scope_id);
+                header.push_str(",");
+                header
+            },
+        );
+        // just replace last comma with semicolon
+        header.replace_range((header.len() - 1).., ";");
+
+        let mut body = String::new();
+
+        // Push all layer declaration to header
+        for (_, scope_id, layer_impl) in ordered_layers {
+            // push each individual to a body
+            body.push_str(format!("@layer {} {{", scope_id).as_str());
+            body.push_str(layer_impl.as_str());
+            body.push_str("}");
+        }
         let style = [header, body].concat();
 
         builder_el.child(style)

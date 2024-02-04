@@ -1,3 +1,5 @@
+#![feature(inline_const)]
+
 //! CSS embeding library.
 //!
 //! The purpose of this library is to add support of embeded
@@ -42,5 +44,13 @@ pub mod build_helper;
 /// <div class=\"my-class-xxTX\">Hello</div>");
 /// ```
 pub use rcss_macro::css;
+/// Common types that used in defining scopes for css.
 mod types;
 pub use types::*;
+/// Traits that are used to define chain of css scopes.
+pub mod extend;
+
+#[doc(hidden)]
+pub mod reexport {
+    pub use const_format;
+}

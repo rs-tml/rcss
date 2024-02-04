@@ -1,31 +1,38 @@
-use std::{collections::BTreeMap, rc::Rc};
+use leptos::{component, IntoView, SignalGet};
 
-use leptos::{
-    component, create_effect, create_rw_signal, leptos_dom::logging::console_log, provide_context,
-    use_context, IntoView, RwSignal, SignalGet, SignalUpdate,
-};
-use leptos_meta::use_head;
-use rcss::{CssCommon, CssWithStyle};
+use rcss::extend::in_chain_ops::ScopeChainOps;
 
 pub mod private;
 
-/// Entry point to register your inline style.
-/// Uses `CssWithStyle` as input.
+pub type Scope = &'static str;
+pub type Style = &'static str;
+
 ///
-/// Internally register basic class, and one that extends it.
+/// Entry point to register your inline styles.
+/// Collects all styles and register them as seperate css @layer.
 ///
-pub fn register_inline_style<T>(css: &CssWithStyle<T>)
+/// Each layer name is a scope id with number prefix.
+///
+/// TODO: It will do nothing if rcss uses file boundiling.
+///
+
+pub fn register_style_chain_as_layers<T>(chain: &T)
 where
-    T: CssCommon,
+    T: ScopeChainOps,
 {
-    //1. add basic class
-    crate::private::append_layer_effect(T::BASIC_SCOPE, T::BASIC_SCOPE, T::BASIC_STYLE.to_string());
-    //2. add extension class
-    crate::private::append_layer_effect(
-        T::BASIC_SCOPE,
-        css.scoped_class(),
-        css.style().to_string(),
-    );
+    let root_scope_id = chain.root_scope_id();
+    let mut scoped_styles = vec![];
+
+    chain.for_each(|scope_id, style| {
+        scoped_styles.push((scope_id, style));
+    });
+
+    for (order, (scope_id, style)) in scoped_styles.iter().rev().enumerate() {
+        if *scope_id == root_scope_id {
+            debug_assert_eq!(order, 0);
+        }
+        private::append_layer_effect(root_scope_id, scope_id, (order as u32, style.to_string()));
+    }
 }
 
 #[component]
