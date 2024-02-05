@@ -187,6 +187,10 @@ fn css_inner() -> Result<CssOutput, MacroError> {
     let Some(text) = helpers::macro_input(&text) else {
         return Err(MacroError::NoSourceAvailable);
     };
-    let output = rcss_core::CssProcessor::process_style(&text)?;
+    let mut output = rcss_core::CssProcessor::process_style(&text)?;
+    if cfg!(disable_styles) {
+        output.clear_styles();
+        // panic!("Styles was disabled.")
+    }
     Ok(output)
 }

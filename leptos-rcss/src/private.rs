@@ -42,6 +42,9 @@ pub fn append_layer_effect(
     new_layer: StyleId,
     layer_impl: (Order, String),
 ) {
+    if layer_impl.1.is_empty() {
+        return;
+    }
     create_effect(move |_| {
         let layered_css_meta = LayeredCssMeta::get();
         let css_uniq_class = css_uniq_class;

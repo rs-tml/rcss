@@ -83,7 +83,8 @@ impl<'src> CssProcessor<'src> {
             changed_classes,
         })
     }
-    fn init_random_class(style: &str) -> [char; 7] {
+    #[doc(hidden)]
+    pub fn init_random_class(style: &str) -> [char; 7] {
         struct CssIdentChars;
         impl Distribution<char> for CssIdentChars {
             fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> char {
@@ -161,6 +162,10 @@ impl CssOutput {
             extend,
             changed_classes,
         }
+    }
+    /// Removes styles from output.
+    pub fn clear_styles(&mut self) {
+        self.css_data.clear();
     }
 
     #[doc(hidden)]

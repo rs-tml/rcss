@@ -23,6 +23,10 @@ rcss-core = { workspace = true }
 
 Inflector = { workspace = true, optional = true }
 
+[build-dependencies]
+rcss-bundle = { workspace = true, no-default-features = true }
+toml = "0.8"
+
 [features]
 # Note: in rcss-core, all backends can be enabled at once.
 # But in rcss-macro/rcss only one backend can be enabled at once.

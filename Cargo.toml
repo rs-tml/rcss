@@ -1,5 +1,14 @@
 [workspace]
-members = ["rcss", "rcss-core", "build_rs_test", "rcss-macro", "macro-visit", "test-usage", "check-bin-size", "leptos-rcss"]
+members = [
+    "rcss",
+    "rcss-core",
+    "build_rs_test",
+    "rcss-macro",
+    "macro-visit",
+    "test-usage",
+    "leptos-rcss",
+    "rcss-bundle",
+]
 exclude = ["build_rs_test/tested_project"]
 resolver = "2"
 
@@ -26,5 +35,6 @@ rcss-core = { version = "0.1.0", path = "rcss-core" }
 rcss-macro = { version = "0.1.0", path = "rcss-macro" }
 rcss = { version = "0.1.0", path = "rcss" }
 macro-visit = { version = "0.1.0", path = "macro-visit" }
+rcss-bundle = { version = "0.1.0", path = "rcss-bundle" }
 
 criterion = "0.5"

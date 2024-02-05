@@ -5,7 +5,12 @@
 //! rename macros and mix macros with same name from different crates.
 //!
 
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use proc_macro2::TokenStream;
 
@@ -18,11 +23,14 @@ use proc_macro2::TokenStream;
 ///
 /// It uses lifetime to allow variable to be captured into closure.
 
-pub type RcMacro<'a> = Rc<RefCell<dyn FnMut(TokenStream) + 'a>>;
+pub type RcMacro<'a> = Rc<RefCell<dyn FnMut(&[String], TokenStream) + 'a>>;
 pub type MacroMap<'a> = BTreeMap<String, RcMacro<'a>>;
 #[derive(Clone)]
 pub struct Visitor<'a> {
     searched_imports: MacroMap<'a>,
+
+    current_module_path: PathBuf,
+    module_path_from_root: Vec<String>,
 }
 impl std::fmt::Debug for Visitor<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -41,10 +49,16 @@ impl<'a> Visitor<'a> {
     pub fn new() -> Self {
         Self {
             searched_imports: BTreeMap::new(),
+            current_module_path: PathBuf::new(),
+            module_path_from_root: vec![],
         }
     }
     /// Add macro implementation to the macro
-    pub fn add_macro(&mut self, imports: Vec<String>, macro_call: impl FnMut(TokenStream) + 'a) {
+    pub fn add_macro(
+        &mut self,
+        imports: Vec<String>,
+        macro_call: impl FnMut(&[String], TokenStream) + 'a,
+    ) {
         let macro_call = Rc::new(RefCell::new(macro_call));
         for import in imports {
             self.searched_imports.insert(import, macro_call.clone());
@@ -55,7 +69,7 @@ impl<'a> Visitor<'a> {
             self.searched_imports.insert(import, macro_call.clone());
         }
     }
-    /// Handle content of file.
+    // Visit file content.
     pub fn visit_file_content(&mut self, content: &str) {
         let file = syn::parse_file(content).unwrap();
         syn::visit::visit_file(self, &file)
@@ -63,17 +77,35 @@ impl<'a> Visitor<'a> {
     /// Handle all *.rs files in src of project directory.
     ///
     /// `project_path` - is path to Cargo.toml of the project
-    pub fn visit_project(self, project_path: &str) {
-        let pattern = format!("{}/src/**/*.rs", project_path);
-        for file in glob::glob(&pattern).unwrap() {
-            let file = file.unwrap();
-            let content = std::fs::read_to_string(&file).unwrap();
-            self.new_subcall().visit_file_content(&content)
+    pub fn visit_project<P: AsRef<std::path::Path>>(&self, entrypoint: P) {
+        let entrypoint = entrypoint.as_ref();
+
+        let content = std::fs::read_to_string(entrypoint).unwrap();
+
+        Self {
+            current_module_path: entrypoint.to_path_buf(),
+            ..self.new_subcall()
         }
+        .visit_file_content(&content)
     }
     fn new_subcall(&self) -> Self {
         Self {
             searched_imports: self.searched_imports.clone(),
+            ..self.clone()
+        }
+    }
+
+    // Hide current imports to parrent imports.
+    fn new_mod(&self, mod_name: String, mod_path: Option<PathBuf>) -> Self {
+        let mod_path =
+            mod_path.unwrap_or_else(|| resolve_module_path(&self.current_module_path, &mod_name));
+        let mut module_path_from_root = self.module_path_from_root.clone();
+        module_path_from_root.push(mod_name);
+        Self {
+            searched_imports: self.searched_imports.clone(),
+            current_module_path: mod_path,
+            module_path_from_root,
+            ..self.clone()
         }
     }
     fn get_macro(&self, path: syn::Path) -> Option<RcMacro<'a>> {
@@ -106,9 +138,41 @@ impl syn::visit::Visit<'_> for Visitor<'_> {
         let mut new_visitor = self.new_subcall();
         syn::visit::visit_impl_item_fn(&mut new_visitor, i);
     }
+    fn visit_item_mod(&mut self, i: &syn::ItemMod) {
+        // get attrs #[path = "foo"];
+        let path_attr = i
+            .attrs
+            .iter()
+            .filter_map(|a| a.meta.require_name_value().ok())
+            .filter(|meta| meta.path.is_ident("path"))
+            .last();
+        let path_attr = path_attr.map(|a| match &a.value {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(lit_str),
+                ..
+            }) => PathBuf::from(lit_str.value()),
+            _ => panic!("Expected literal string in path attribute"),
+        });
+        // Create new visitor for module
+        let mut mod_visitor = self.new_mod(i.ident.to_string(), path_attr);
+
+        // Process items
+        if let Some(c) = &i.content {
+            for i in &c.1 {
+                mod_visitor.visit_item(i)
+            }
+            return;
+        }
+        println!("Found mod: {:?}", i.ident);
+        println!("Reading path: {:?}", mod_visitor.current_module_path);
+        // Or process file in case of `mod foo;` item.
+        let content = std::fs::read_to_string(mod_visitor.current_module_path.clone()).unwrap();
+        mod_visitor.visit_file_content(&content)
+    }
+
     fn visit_macro(&mut self, i: &syn::Macro) {
         if let Some(macro_impl) = self.get_macro(i.path.clone()) {
-            macro_impl.borrow_mut()(i.tokens.clone());
+            macro_impl.borrow_mut()(&self.module_path_from_root, i.tokens.clone());
         }
     }
 }
@@ -197,6 +261,26 @@ pub(crate) fn create_import_path(remining: syn::UseTree) -> String {
     path
 }
 
+// Resolve path to a mod, based on current module path and module_name.
+fn resolve_module_path(current_module_path: &Path, mod_name: &str) -> PathBuf {
+    let mut mod_folder = current_module_path.to_path_buf();
+    mod_folder.pop();
+    let mod_path = mod_folder.join(format!("{mod_name}.rs"));
+    if mod_path.exists() {
+        return mod_path;
+    } else {
+        let mut mod_path = mod_folder.join(mod_name);
+        mod_path.push("mod.rs");
+        if mod_path.exists() {
+            return mod_path;
+        }
+    }
+    panic!(
+        "Cannot find module {} relative to path {:?}",
+        mod_name, current_module_path
+    );
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -206,7 +290,7 @@ mod test {
     fn test_simple_macro_call() {
         let mut found = false;
         let mut visitor = super::Visitor::new();
-        let macro_call = |_| {
+        let macro_call = |_: &_, _| {
             found = true;
         };
         visitor.add_macro(vec!["rcss::file::css_module::css".to_owned()], macro_call);
@@ -223,7 +307,7 @@ mod test {
     fn test_macro_inside_fn() {
         let mut found = false;
         let mut visitor = super::Visitor::new();
-        let macro_call = |_| {
+        let macro_call = |_: &_, _| {
             found = true;
         };
         visitor.add_macro(vec!["rcss::file::css_module::css".to_owned()], macro_call);
@@ -241,7 +325,7 @@ mod test {
     fn test_macro_inside_impl_fn() {
         let mut found = false;
         let mut visitor = super::Visitor::new();
-        let macro_call = |_| {
+        let macro_call = |_: &_, _| {
             found = true;
         };
         visitor.add_macro(vec!["rcss::file::css_module::css".to_owned()], macro_call);
@@ -261,7 +345,7 @@ mod test {
     fn test_macro_inside_fn_with_outer_and_inner_reimport() {
         let mut found = false;
         let mut visitor = super::Visitor::new();
-        let macro_call = |_| {
+        let macro_call = |_: &_, _| {
             found = true;
         };
         visitor.add_macro(vec!["rcss::file::css_module::css".to_owned()], macro_call);
