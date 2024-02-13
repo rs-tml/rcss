@@ -35,7 +35,7 @@ fn main () {
     let crate_name = std::env::var("CARGO_CRATE_NAME").unwrap_or("rcss".to_owned());
     let collect_style = RefCell::new(String::new());
 
-    let mut css_handler = |token_stream: TokenStream| {
+    let mut css_handler = |context, token_stream: TokenStream| {
        collect_style.borrow_mut().push_str(/* Handle token_stream */ )
     };
 
