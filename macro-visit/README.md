@@ -52,6 +52,6 @@ fn main () {
 ```
 
 `macro-visit` will find all occurrences of `css!` macro, even if it was renamed.
-Currently, it only looks for imports inside one file at a time, and does not parallelize file processing.
+Currently, it only looks for imports inside one file at a time and does not parallelize file processing.
 
 

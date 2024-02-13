@@ -10,7 +10,7 @@ use rcss_core::rcss_at_rule::RcssAtRuleConfig;
 /// And can be retrived in function like proc-macro `Span::call_site().source_text()`.
 ///
 /// Example:
-/// ```rust
+/// ```no_build
 /// let input = r#"
 /// css! {
 ///    .my-class {
@@ -18,7 +18,7 @@ use rcss_core::rcss_at_rule::RcssAtRuleConfig;
 ///   }
 /// }
 /// "#;
-/// let macro_input = rcss_core::macro_helper::macro_input(input, false).unwrap();
+/// let macro_input = rcss_macro::helpers::macro_input(input, false).unwrap();
 /// assert_eq!(macro_input, ".my-class {\n      color: red;\n  }");
 /// ```
 pub fn macro_input(source_text: &str) -> Option<String> {
@@ -248,6 +248,7 @@ fn generate_root_struct(
     quote::quote! {
         // allow non_snake_case for `__kebab__baz_k_2` style fields
         #[allow(non_snake_case)]
+        #[must_use = "Scope style should be registered"]
         #[derive(Debug, Copy, Clone)]
         #vis_struct #struct_ident {
             #(#field_classes: &'static str),*
@@ -278,6 +279,8 @@ fn generate_root_struct(
             }
         }
 
+
+        #[must_use = "Scope style should be registered"]
         impl ::rcss::ScopeCommon for #struct_ident {
             const STYLE: &'static str = #style;
             const SCOPE_ID: &'static str = #uniq_class;

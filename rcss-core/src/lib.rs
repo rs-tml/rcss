@@ -98,6 +98,7 @@ impl<'src> CssProcessor<'src> {
         let mut seed = [0xdeu8; 32];
         style
             .bytes()
+            .filter(|c| !c.is_ascii_whitespace())
             .enumerate()
             .for_each(|(i, c)| seed[i % 32] ^= c);
 

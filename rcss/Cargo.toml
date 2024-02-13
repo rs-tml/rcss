@@ -13,8 +13,7 @@ include = ["/src", "../LICENSE"]
 
 [dependencies]
 rcss-macro = { workspace = true }
-rcss-core = { workspace = true, optional = true }
-const_format = "0.2.32"
+const_format = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4"

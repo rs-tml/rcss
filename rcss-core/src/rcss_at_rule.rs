@@ -160,7 +160,7 @@ mod tests {
     #[test]
     fn check_at_rule_mod() {
         let input = r#"
-            @rcss(mod my_mod);
+            @rcss(pub struct MyStruct);
             
             .my-class {
                 color: red;
@@ -177,12 +177,15 @@ mod tests {
 
         match &rule {
             CssRule::Custom(super::RcssAtRuleConfig::Struct(item_mod)) => {
-                assert_eq!(item_mod.to_token_stream().to_string(), "mod my_mod ;")
+                assert_eq!(
+                    item_mod.to_token_stream().to_string(),
+                    "pub struct MyStruct ;"
+                )
             }
             _ => unreachable!(),
         }
         let output = rule.to_css_string(Default::default()).unwrap();
-        assert_eq!(output, "@rcss(mod my_mod);");
+        assert_eq!(output, "@rcss(pub struct MyStruct);");
     }
 
     #[test]

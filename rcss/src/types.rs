@@ -1,19 +1,18 @@
 pub type Style = &'static str;
 pub type ScopeId = &'static str;
 
+#[must_use = "Scope style should be registered"]
 pub trait ScopeCommon {
     /// Scope that was defined in basic object.
     const SCOPE_ID: &'static str;
     /// Scope style that was defined in basic object.
+    /// It should contain valid css style.
+    /// Note: It can be empty, if any root crate uses rcss-bundle and sets `metadata.rcss.disable-styles = true`.
     const STYLE: &'static str;
 
-    // /// Create basic object with bounded styles.
-    // fn new_with_style() -> ScopeWithStyle<Self>
-    // where
-    //     Self: Sized + Default,
-    // {
-    //     ScopeWithStyle::new(Self::default(), Self::STYLE)
-    // }
+    fn scope_style(&self) -> &'static str {
+        Self::STYLE
+    }
 }
 
 #[cfg(test)]

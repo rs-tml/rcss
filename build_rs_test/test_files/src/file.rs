@@ -1,4 +1,4 @@
-rcss::css_struct! { @rcss(mod foo); .my-class2 { color: blue; } }
+rcss::css! { @rcss(struct Foo); .my-class2 { color: blue; } }
 
 #[any_attribute]
 fn some_method(foo: Argument<impl Generic>) {

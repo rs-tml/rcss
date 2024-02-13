@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    ffi::OsStr,
     path::{Path, PathBuf},
 };
 
@@ -40,21 +41,76 @@ impl Config {
     }
 }
 
-fn main() {
+fn traverse_targets_dirs<F>(parent: &Path, mode: &OsStr, mut f: F)
+where
+    F: FnMut(&Path),
+{
+    // /target/**
+    for entry in parent.read_dir().unwrap() {
+        //    /target/wasm32-unknown-unknown/
+        // or /target/(mode)/
+        // or /target/some_artifact_folder/
+        // or /target/.rustc_info.json
+
+        let entry = entry.unwrap();
+        let path = entry.path();
+        //    /target/wasm32-unknown-unknown/
+        // or /target/(mode)/
+        // or /target/some_artifact_folder/
+        if !path.is_dir() {
+            continue;
+        }
+
+        // keep only /target/wasm32-unknown-unknown/(mode)/ folders
+        let new_path = path.join(mode).join("build");
+        if !new_path.is_dir() {
+            continue;
+        }
+
+        f(&new_path);
+    }
+}
+
+fn crates_paths_with_subtargets() -> HashSet<PathBuf> {
+    // /target/(mode)/build/(package_name)-(hash)/out
     let out_dir: PathBuf = std::env::var("OUT_DIR")
         .expect("$OUT_DIR should exist.")
         .into();
+    // /target/(mode)/build/
     let build_dir = out_dir
         .ancestors()
         .skip(2)
         .next()
         .expect("No build directory found.");
 
-    let crates = collect_crates_path(build_dir);
+    let mut crates = collect_crates_path(build_dir);
 
-    let warn_on_set = crates.len() > 1;
-    if crates.len() > 1 {
+    // Macro is always build for native target, therefore build script is also run for native target.
+    // But if your end crate is build using cross-compiliation it path can vary.
+    // Ex: instead of /target/(mode)/build/ it can be /target/(mode)/(target)/build/
+    let mut ancestors = build_dir.ancestors().skip(1);
+    let target_mode_dir = ancestors
+        .next()
+        .expect("No mode found in target dir (release or debug?).");
+    let mode = target_mode_dir
+        .file_name()
+        .expect("Failed to retrieve mod from target dir (release or debug?).");
+    let target_dir = ancestors.next().expect("No target dir found.");
+    traverse_targets_dirs(target_dir, mode, |path| {
+        crates.extend(collect_crates_path(path));
+    });
+    crates
+}
+
+fn main() {
+    let crates = crates_paths_with_subtargets();
+
+    let too_many_roots = crates.len() > 1;
+    if too_many_roots {
         println!("cargo:warning=More than one rcss-bundle root manifest found.");
+        println!(
+            "cargo:warning=Checkout 'cargo tree -i --depth 1 rcss-bundle' to see what caused this issue."
+        );
         for c in &crates {
             println!("cargo:warning=Root detected at {}", c.display());
         }
@@ -75,7 +131,7 @@ fn main() {
         {
             if let Some(disable_styles) = manifest.get("disable-styles").and_then(|d| d.as_bool()) {
                 if disable_styles {
-                    if warn_on_set {
+                    if too_many_roots {
                         println!("cargo:warning=Disabling styles from {}", c.display());
                     }
                     config.disable_styles = true;

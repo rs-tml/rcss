@@ -10,3 +10,4 @@ edition = "2021"
 rcss = { workspace = true }
 rcss-core = { workspace = true }
 regex = "1.10.2"
+rcss-bundle = { workspace = true, features = ["full"] }

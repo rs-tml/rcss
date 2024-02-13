@@ -39,14 +39,14 @@ pub trait ScopeChain: Into<Self::Root> {
 ///
 /// Example:
 /// On component declaration instead of writing:
-/// ```
+/// ```no_build
 /// css!{@rccs(pub struct Css)}
 /// #[component]
 /// pub fn my_component<T: Into<Css> + ScopeChainOps>(css: Option<T>) -> impl IntoView {..}
 /// ```
 /// Which make ergonomics worse since MyComponent is not possible to use without passing `css` prop.
 /// One can write:
-/// ```
+/// ```no_build
 /// css!{@rccs(pub struct Css)}
 /// #[component]
 /// pub fn my_component(css: Option<StyleChain<Css>>) -> impl IntoView {..}

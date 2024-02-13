@@ -14,8 +14,6 @@
 //! Aim of macros in this library is to give support of unquoted styles on stable rust.
 //!
 // https://drafts.csswg.org/css-scoping/
-#[cfg(feature = "build-helper")]
-pub mod build_helper;
 
 /// Api that mimic js "CSS modules", it generate struct with css classes as fields.
 /// Output instance of this struct as result of macro call.
@@ -26,7 +24,8 @@ pub mod build_helper;
 ///
 /// Example:
 /// ```rust
-/// let (css, inline) = rcss::inline::css_modules::css! {
+/// use rcss::*;
+/// let css = rcss::css! {
 ///    .my-class {
 ///      color: red;
 ///   }
@@ -39,9 +38,10 @@ pub mod build_helper;
 ///
 /// // Example of usage
 /// let html = format!(r#"<div class="{}">Hello</div>"#, css.my_class);
-/// let html = format!("<style>{}</style>\n{}", inline, html);
-/// assert_eq!(html, "<style>.my-class-xxTX{color:red}</style>\n\
-/// <div class=\"my-class-xxTX\">Hello</div>");
+/// // Note: This style is only used for current style, and doesn't combine well with extend.
+/// let html = format!("<style>{}</style>\n{}", css.scope_style(), html);
+/// assert_eq!(html, "<style>.my-class-Mlfe{color:red}</style>\n\
+/// <div class=\"my-class-Mlfe\">Hello</div>");
 /// ```
 pub use rcss_macro::css;
 /// Common types that used in defining scopes for css.

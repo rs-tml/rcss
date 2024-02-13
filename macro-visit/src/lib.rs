@@ -90,6 +90,10 @@ impl<'a> Visitor<'a> {
     pub fn visit_project<P: AsRef<std::path::Path>>(&self, entrypoint: P) {
         let entrypoint = entrypoint.as_ref();
 
+        println!(
+            "Processing project with entrypoint: {:?}",
+            entrypoint.display()
+        );
         let content = std::fs::read_to_string(entrypoint).unwrap();
 
         let mut src_filedir = entrypoint.to_path_buf();

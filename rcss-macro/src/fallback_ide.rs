@@ -227,8 +227,8 @@ mod test {
     #[test]
     fn mod_declare_and_extend_parse() {
         let input = r#"
-        @rcss(mod my_mod);
-        @rcss(extend ::path::to::my_mod);
+        @rcss(pub struct MyStruct);
+        @rcss(extend ::path::to::MyStruct);
         .my-class {
             color: red;
         }
@@ -238,10 +238,10 @@ mod test {
         let mut expected_list = vec!["my-class"];
         expected_list.sort();
         assert_eq!(elements_list, expected_list);
-        assert_eq!(output.declare().unwrap().ident.to_string(), "my_mod");
+        assert_eq!(output.declare().unwrap().ident.to_string(), "MyStruct");
         assert_eq!(
             output.extend().unwrap().to_token_stream().to_string(),
-            ":: path :: to :: my_mod"
+            ":: path :: to :: MyStruct"
         );
     }
 }
