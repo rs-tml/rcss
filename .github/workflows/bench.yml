@@ -12,7 +12,7 @@ jobs:
       - name: critcmp
         run: |
           cargo install critcmp
-          cargo bench -- --save-baseline changes
+          cargo bench -p rcss-core -- --save-baseline changes
           git checkout main
-          cargo bench -- --save-baseline main
+          cargo bench -p rcss-core -- --save-baseline main
           critcmp main changes

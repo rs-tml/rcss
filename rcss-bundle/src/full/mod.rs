@@ -195,7 +195,7 @@ pub struct BundleOption {
 
 impl Default for BundleOption {
     fn default() -> Self {
-        let mut output_path = std::env::var("OUT_DIR").expect("OUT_DIR_TO_SET");
+        let mut output_path = std::env::var("OUT_DIR").expect("OUT_DIR to be set");
         output_path.push_str("/styles.css");
         Self {
             output_path,

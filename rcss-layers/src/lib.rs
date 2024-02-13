@@ -81,6 +81,9 @@ impl LayeredCss {
             debug_assert_eq!(*order, order_in_chain);
             return false;
         }
+        if style.is_empty() {
+            return false;
+        }
         let res = layers_of_chain
             .insert(layer_scope_id, (order_in_chain, style))
             .is_none();
@@ -102,6 +105,7 @@ impl LayeredCss {
     /// Uses information from `ScopeChain` implementation,
     /// to retrieve scope_id of each layer and its style.
     /// Automatically detects root_scope_id and sets order based on distance from root.
+    /// Ignore empty styles.
     ///
     /// Return true if any of the layers is new.
     #[cfg(feature = "rcss_enable")]

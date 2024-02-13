@@ -36,7 +36,7 @@ impl Styles {
         // insert root
         if order == 0 {
             assert_eq!(root_scope_id, scope_id);
-            assert!(self.sorted.root_scope_exist(root_scope_id.clone()));
+            assert!(!self.sorted.root_scope_exist(root_scope_id.clone()));
         }
 
         self.sorted
@@ -89,7 +89,7 @@ impl Styles {
             );
         }
         // TODO: assert prev is none
-        assert!(self
+        assert!(!self
             .sorted
             .layer_exist_in_root_scope(root_scope_id.clone(), scope_id.clone()));
         self.sorted
@@ -101,14 +101,14 @@ impl Styles {
         let mut styles = Styles::default();
 
         // Firstly process all computed, then go to calculated
-        let (computed, to_calculate): (Vec<_>, Vec<_>) = unsorted
+        let (to_compute, calculated): (Vec<_>, Vec<_>) = unsorted
             .clone()
             .into_iter()
             .partition(|(_, (order, _, _))| matches!(order, DependencyInfo::Computed { .. }));
 
-        let mut stack = computed
+        let mut stack = to_compute
             .into_iter()
-            .chain(to_calculate)
+            .chain(calculated)
             .map(|(file_id, _)| file_id)
             .collect::<Vec<_>>();
 
