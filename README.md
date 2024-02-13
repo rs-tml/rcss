@@ -91,7 +91,7 @@ fn hello_world() -> Node {
             color: white;
         }
     };
-    rcss_leptos::register_style_chain_as_layers(css.clone());
+    rcss_leptos::register_style(css.clone());
 
     view! {
         <div class=css.container>Hello</div>

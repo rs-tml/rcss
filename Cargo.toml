@@ -34,11 +34,11 @@ rand_chacha = "0.3.1"
 const_format = "0.2.32"
 
 
-rcss-core = { version = "0.1.0", path = "rcss-core" }
-rcss-macro = { version = "0.1.0", path = "rcss-macro" }
-rcss-layers = { version = "0.1.0", path = "rcss-layers" }
-rcss = { version = "0.1.0", path = "rcss" }
+rcss-core = { version = "0.2.0", path = "rcss-core" }
+rcss-macro = { version = "0.2.0", path = "rcss-macro" }
+rcss-layers = { version = "0.2.0", path = "rcss-layers" }
+rcss = { version = "0.2.0", path = "rcss" }
 macro-visit = { version = "0.2.0", path = "macro-visit" }
-rcss-bundle = { version = "0.1.0", path = "rcss-bundle", default-features = false }
+rcss-bundle = { version = "0.2.0", path = "rcss-bundle", default-features = false }
 
 criterion = "0.5"

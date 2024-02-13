@@ -1,5 +1,3 @@
-#![feature(inline_const)]
-
 //! CSS embeding library.
 //!
 //! The purpose of this library is to add support of embeded
