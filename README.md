@@ -111,7 +111,7 @@ By default, it saves CSS into `$OUT_DIR/styles.css`. However, this can be custom
 
 ```toml
 [package.metadata.rcss]
-output-path = "style/counters.css" # Path to save style
+output-path = "style/counters.css" # Path to save styles
 disable-styles = false # If set to true will force `rcss-macro` to remove style strings from macro output.
 ```
 
