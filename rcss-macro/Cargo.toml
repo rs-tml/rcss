@@ -24,7 +24,7 @@ rcss-core = { workspace = true }
 Inflector = { workspace = true, optional = true }
 
 [build-dependencies]
-rcss-bundle = { workspace = true, default-features = false }
+rcss-bundler = { workspace = true, default-features = false }
 toml = "0.8"
 
 [features]

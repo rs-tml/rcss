@@ -5,9 +5,9 @@ use std::{
 };
 
 ///
-/// Each root manifest that uses rcss-bundle will have file named "rcss-bundle.config"
+/// Each root manifest that uses rcss-bundler will have file named "rcss-bundler.config"
 ///
-use rcss_bundle::load_root_manifest_path;
+use rcss_bundler::load_root_manifest_path;
 
 fn collect_crates_path(build_dir: &Path) -> HashSet<PathBuf> {
     let mut crates_paths = HashSet::new();
@@ -107,9 +107,9 @@ fn main() {
 
     let too_many_roots = crates.len() > 1;
     if too_many_roots {
-        println!("cargo:warning=More than one rcss-bundle root manifest found.");
+        println!("cargo:warning=More than one rcss-bundler root manifest found.");
         println!(
-            "cargo:warning=Checkout 'cargo tree -i --depth 1 rcss-bundle' to see what caused this issue."
+            "cargo:warning=Checkout 'cargo tree -i --depth 1 rcss-bundler' to see what caused this issue."
         );
         for c in &crates {
             println!("cargo:warning=Root detected at {}", c.display());

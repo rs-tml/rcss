@@ -7,7 +7,7 @@ members = [
     "macro-visit",
     "test-usage",
     "rcss-leptos",
-    "rcss-bundle",
+    "rcss-bundler",
     "rcss-layers",
 ]
 exclude = ["build_rs_test/tested_project"]
@@ -39,6 +39,6 @@ rcss-macro = { version = "0.2.0", path = "rcss-macro" }
 rcss-layers = { version = "0.2.0", path = "rcss-layers" }
 rcss = { version = "0.2.0", path = "rcss" }
 macro-visit = { version = "0.2.0", path = "macro-visit" }
-rcss-bundle = { version = "0.2.0", path = "rcss-bundle", default-features = false }
+rcss-bundler = { version = "0.2.0", path = "rcss-bundler", default-features = false }
 
 criterion = "0.5"

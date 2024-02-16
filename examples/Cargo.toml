@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "simple/component_library",
+    "simple/component_usage",
+    "simple/component_usage_bundler",
+    "leptos/leptos-counter",
+]
+[workspace.dependencies]
+rcss = { version = "0.2.0", path = "../rcss" }
+rcss-leptos = { version = "0.2.0", path = "../rcss-leptos" }
+rcss-bundler = { version = "0.2.0", path = "../rcss-bundler" }

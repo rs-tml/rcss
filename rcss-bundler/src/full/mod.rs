@@ -107,10 +107,7 @@ pub fn get_config_from_metadata(
 // Read manifest file and find all
 // Get list of crates that depend on rcss
 // Returns path to their manifest file
-pub fn get_depend_crate_info_and_options(
-    manifest_path: &Path,
-    crate_name: &str,
-) -> (Vec<CrateInfo>, BundleOption) {
+pub fn get_depend_crate_info_and_options(manifest_path: &Path) -> (Vec<CrateInfo>, BundleOption) {
     let mut cmd = MetadataCommand::new();
     let mut options = BundleOption::default();
 
@@ -126,7 +123,7 @@ pub fn get_depend_crate_info_and_options(
             continue;
         }
         // Scan metadata of root manifest
-        if package.name == crate_name {
+        if package.manifest_path.as_path() == manifest_path {
             debug_assert_eq!(package.manifest_path, manifest_path);
             let mut path = package.manifest_path.clone();
             path.pop();
@@ -134,15 +131,17 @@ pub fn get_depend_crate_info_and_options(
             if let Some(new_opts) = get_config_from_metadata(&package.metadata, path.into()) {
                 options = new_opts;
             }
-        }
-        for dep in &package.dependencies {
-            if dep.name == "rcss" {
-                let crate_info = CrateInfo {
-                    name: package.name.clone(),
-                    path_to_manifest: package.manifest_path.clone().into(),
-                };
-                result.push(crate_info);
+
+            for dep in &package.dependencies {
+                if dep.name == "rcss" {
+                    let crate_info = CrateInfo {
+                        name: package.name.clone(),
+                        path_to_manifest: package.manifest_path.clone().into(),
+                    };
+                    result.push(crate_info);
+                }
             }
+            break;
         }
     }
 
@@ -211,11 +210,8 @@ pub struct CrateInfo {
     pub path_to_manifest: PathBuf,
 }
 
-pub fn bundle(packange_name: String, root_manifest: &Path) {
-    crate::save_root_manifest_path(root_manifest);
-
-    let (crates, options) =
-        get_depend_crate_info_and_options(root_manifest, packange_name.as_str());
+pub fn bundle(root_manifest: &Path) -> String {
+    let (crates, options) = get_depend_crate_info_and_options(root_manifest);
 
     // TODO: Filter deps that not use macro, like (leptos-rcss)
 
@@ -227,17 +223,19 @@ pub fn bundle(packange_name: String, root_manifest: &Path) {
         let entrypoints = get_entrypoints(&crate_info.path_to_manifest);
         for entrypoint in entrypoints {
             println!("Processing entrypoint: {:?}", entrypoint);
-            process_styles("", collected_styles.clone(), &entrypoint);
+            process_styles(&crate_info.name, collected_styles.clone(), &entrypoint);
         }
     }
     let styles = collect_styles::Styles::from_unsorted(collected_styles.borrow().clone());
-    styles.save_with(&options);
+    styles.save_with(&options)
 }
 
 pub fn bundle_build_rs() {
     let mut path: PathBuf = std::env::var("CARGO_MANIFEST_DIR").unwrap().into();
     path.push("Cargo.toml");
-    let packange_name = std::env::var("CARGO_PKG_NAME").expect("Expect CARGO_PKG_NAME to be set");
     println!("cargo:rerun-if-changed=Cargo.toml");
-    bundle(packange_name, &path)
+
+    crate::save_root_manifest_path(&path);
+    let file_out = bundle(&path);
+    println!("cargo:rerun-if-changed={file_out}");
 }

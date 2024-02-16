@@ -7,7 +7,7 @@ use crate::{ScopeId, Style};
 ///
 /// But computed fields are stored in root object.
 ///
-pub trait ScopeChain: Into<Self::Root> {
+pub trait ScopeChain: Sized {
     type Parent;
     type Root;
 
@@ -20,20 +20,15 @@ pub trait ScopeChain: Into<Self::Root> {
         todo!()
     }
 
-    /// NOTE: This method should also contain const version of this method.
-    /// But because const traits is not yet stabilized, we use const fn in impl of each struct.
-    /// But we left this in trait to make it easier to document.
-    ///
     /// This method should only wrap root object to type-safe wrapper.
-    /// Fields are modified innew_root method.
-    fn _from_root(_root: <Self as crate::extend::ScopeChain>::Root) -> Self
+    /// Fields are modified in new_root method.
+    fn from_root(_root: <Self as crate::extend::ScopeChain>::Root) -> Self
     where
-        Self: Sized,
-    {
-        todo!()
-    }
+        Self: Sized;
+    fn into_root(self) -> <Self as crate::extend::ScopeChain>::Root;
 }
 
+pub use in_chain_ops::ScopeChainOps;
 /// Hack type that is used instead of generic Into<T>.
 /// Used to avoid conflicts with type_builder default value for optional generic.
 ///
@@ -185,7 +180,6 @@ pub mod in_chain_ops {
 impl<T> From<T> for StyleChain<T::Root>
 where
     T: in_chain_ops::ScopeOpsStatic + ScopeChain,
-    <T as ScopeChain>::Root: From<T>,
 {
     fn from(scoped_style: T) -> Self {
         let mut chain = vec![];
@@ -193,7 +187,7 @@ where
 
         Self {
             chain,
-            scoped_style: scoped_style.into(),
+            scoped_style: scoped_style.into_root(),
         }
     }
 }

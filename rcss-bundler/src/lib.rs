@@ -9,7 +9,7 @@ use std::{
 #[cfg(feature = "full")]
 pub use full::*;
 
-pub const MANIFEST_PATH_CONFIG: &str = "rcss-bundle-root.path";
+pub const MANIFEST_PATH_CONFIG: &str = "rcss-bundler-root.path";
 
 pub fn save_root_manifest_path(root_manifest: &Path) {
     let mut file: PathBuf = std::env::var("OUT_DIR")

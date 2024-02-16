@@ -103,7 +103,7 @@ More examples can be found in `examples/leptos` directory.
 
 ## Bundling CSS:
 RCSS can bundle all CSS into a static file.
-In order to do that one can use `rcss-bundle` crate in build.rs.
+In order to do that one can use `rcss-bundler` crate in build.rs.
 
 
 By default, it saves CSS into `$OUT_DIR/styles.css`. However, this can be customized through cargo metadata.
@@ -116,7 +116,7 @@ disable-styles = false # If set to true will force `rcss-macro` to remove style 
 ```
 
 
-Note: `disable-styles` can be ignored by `rcss-macro` if `rcss-bundle` was added after the first build.
+Note: `disable-styles` can be ignored by `rcss-macro` if `rcss-bundler` was added after the first build.
 One can use `cargo clean -p rcss-macro` or `cargo clean -p rcss-macro --target-dir target/front` (in case of cargo-leptos) to force cargo rebuild `rcss-macro`.
 
 ## Macro implementation details: 
@@ -134,3 +134,6 @@ CSS usually contains static predefined content, which rarely needs to be generat
 Therefore link between the original code and IDE is less important. Instead, most of the users just want to write CSS for their components near its implementation.
 
 So instead of writing a custom parser on top of `proc-macro::TokenStream`, this library tries to convert macro calls into strings and work with convenient CSS preprocessors.
+
+
+TODO: Check usage of bundler in workspace.

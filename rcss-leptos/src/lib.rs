@@ -17,7 +17,7 @@ pub type Style = &'static str;
 /// Notifies `RenderView` component to update styles in the DOM.
 /// It will do nothing if style is empty or already registered.
 ///
-/// Check out rcss-bundle for usage with style bundling.
+/// Check out rcss-bundler for usage with style bundling.
 ///
 ///
 /// # Example:

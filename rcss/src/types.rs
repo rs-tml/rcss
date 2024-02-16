@@ -7,7 +7,7 @@ pub trait ScopeCommon {
     const SCOPE_ID: &'static str;
     /// Scope style that was defined in basic object.
     /// It should contain valid css style.
-    /// Note: It can be empty, if any root crate uses rcss-bundle and sets `metadata.rcss.disable-styles = true`.
+    /// Note: It can be empty, if any root crate uses rcss-bundler and sets `metadata.rcss.disable-styles = true`.
     const STYLE: &'static str;
 
     fn scope_style(&self) -> &'static str {

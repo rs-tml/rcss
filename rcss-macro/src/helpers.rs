@@ -289,6 +289,14 @@ fn generate_root_struct(
         impl ::rcss::extend::ScopeChain for #struct_ident {
             type Parent = ::std::convert::Infallible;
             type Root = Self;
+            fn from_root(root: Self) -> Self
+            where
+                Self: Sized {
+                root
+            }
+            fn into_root(self) -> Self {
+                self
+            }
         }
         #index_impl
     }
@@ -312,7 +320,7 @@ fn generate_child_struct(
 
             pub fn new() -> Self {
                 let root = Self::new_root();
-                root.into()
+                ::rcss::extend::ScopeChain::from_root(root)
             }
 
             /// Const fn is not stabilized in traits, so we use it in structure.
@@ -357,20 +365,28 @@ fn generate_child_struct(
 
         impl ::rcss::extend::ScopeChain for #struct_ident {
             type Parent = #path_to_parent;
-            type Root = <Self::Parent as ::rcss::extend::ScopeChain>::Root;
-        }
-
-        impl From<#struct_ident> for <#struct_ident as ::rcss::extend::ScopeChain>::Root {
-            fn from(v: #struct_ident) -> Self {
-                v.0.into()
+            type Root = <#path_to_parent as ::rcss::extend::ScopeChain>::Root;
+            fn from_root(root: <Self as ::rcss::extend::ScopeChain>::Root) -> Self
+            where
+                Self: Sized {
+                Self(Self::Parent::from_root(root))
+            }
+            fn into_root(self) -> <Self as ::rcss::extend::ScopeChain>::Root {
+                self.0.into_root()
             }
         }
 
-        impl From<<#struct_ident as ::rcss::extend::ScopeChain>::Root> for #struct_ident {
-            fn from(v: <#struct_ident as ::rcss::extend::ScopeChain>::Root) -> Self {
-                Self(v.into())
-            }
-        }
+        // impl From<#struct_ident> for <#struct_ident as ::rcss::extend::ScopeChain>::Root {
+        //     fn from(v: #struct_ident) -> Self {
+        //         v.0.into()
+        //     }
+        // }
+
+        // impl From<<#struct_ident as ::rcss::extend::ScopeChain>::Root> for #struct_ident {
+        //     fn from(v: <#struct_ident as ::rcss::extend::ScopeChain>::Root) -> Self {
+        //         Self(v.into())
+        //     }
+        // }
     }
 }
 

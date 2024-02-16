@@ -54,7 +54,10 @@ impl Styles {
         style: Style,
         resolution: &mut BTreeMap<ModId, (DependencyInfo, ScopeId, Style)>,
     ) {
-        let (parent_di, _, _) = resolution.get(&extend).expect("Cannot find extended style");
+        let (parent_di, _, _) = resolution
+            .get(&extend)
+            .or_else(|| resolution.get(&extend[1..]))
+            .expect("Cannot find extended style");
         let (new_order, root_scope_id) = match parent_di {
             DependencyInfo::Calculated {
                 order,
@@ -160,7 +163,7 @@ impl Styles {
         styles
     }
 
-    pub fn save_with(&self, config: &crate::BundleOption) {
+    pub fn save_with(&self, config: &crate::BundleOption) -> String {
         let mut resulted_style = String::new();
         for (root_scope_id, layers) in self.sorted.styles.iter() {
             resulted_style.push_str(
@@ -176,6 +179,7 @@ impl Styles {
         writer
             .write_all(resulted_style.as_bytes())
             .expect("Failed to write to file");
+        config.output_path.clone()
     }
 }
 impl Collector {

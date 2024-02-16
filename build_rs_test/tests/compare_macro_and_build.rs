@@ -30,10 +30,10 @@ fn test_compare_macro_and_build() {
     println!("test {class_name}");
     // panic!("expanded: {}", expanded);
 
-    let style_collector = Rc::new(RefCell::new(rcss_bundle::full::Collector::new()));
+    let style_collector = Rc::new(RefCell::new(rcss_bundler::full::Collector::new()));
     let cargo_dir: &Path = cargo_dir.as_ref();
     let cargo_dir = cargo_dir.join("src/valid.rs");
-    rcss_bundle::process_styles("test_project", style_collector.clone(), &cargo_dir);
+    rcss_bundler::process_styles("test_project", style_collector.clone(), &cargo_dir);
     let output = style_collector.borrow().to_styles();
     let output = &output[0];
     // panic!();

@@ -1,13 +1,10 @@
 [package]
-name = "build_rs_test"
-version = "0.2.0"
+name = "component_usage"
+version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-[dev-dependencies]
 rcss = { workspace = true }
-rcss-core = { workspace = true }
-regex = "1.10.2"
-rcss-bundler = { workspace = true, features = ["full"] }
+component_library = { path = "../component_library" }
