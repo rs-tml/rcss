@@ -1,4 +1,4 @@
-use cargo_metadata::MetadataCommand;
+use cargo_metadata::{Metadata, MetadataCommand, Package, PackageId};
 
 use proc_macro2::TokenStream;
 use std::{
@@ -104,82 +104,100 @@ pub fn get_config_from_metadata(
     }
     Some(options)
 }
-// Read manifest file and find all
-// Get list of crates that depend on rcss
-// Returns path to their manifest file
-pub fn get_depend_crate_info_and_options(manifest_path: &Path) -> (Vec<CrateInfo>, BundleOption) {
-    let mut cmd = MetadataCommand::new();
-    let mut options = BundleOption::default();
 
-    let metadata = cmd
-        .manifest_path(manifest_path)
-        .exec()
-        .expect("Failed to read metadata");
-
-    let blacklist = vec!["rcss-leptos", "rcss-layers"];
-    let mut result = Vec::new();
-    for package in metadata.packages {
-        if blacklist.contains(&package.name.as_str()) {
-            continue;
-        }
-        // Scan metadata of root manifest
+fn get_crate_id_by_manifest_path(
+    metadata: &Metadata,
+    manifest_path: &Path,
+) -> (PackageId, BundleOption) {
+    for package in &metadata.packages {
         if package.manifest_path.as_path() == manifest_path {
-            debug_assert_eq!(package.manifest_path, manifest_path);
+            let mut options = BundleOption::default();
             let mut path = package.manifest_path.clone();
             path.pop();
 
             if let Some(new_opts) = get_config_from_metadata(&package.metadata, path.into()) {
                 options = new_opts;
             }
-
-            for dep in &package.dependencies {
-                if dep.name == "rcss" {
-                    let crate_info = CrateInfo {
-                        name: package.name.clone(),
-                        path_to_manifest: package.manifest_path.clone().into(),
-                    };
-                    result.push(crate_info);
-                }
-            }
-            break;
+            return (package.id.clone(), options);
         }
     }
-
-    return (result, options);
+    panic!(
+        "Failed to find crate id by manifest path: {}",
+        manifest_path.display()
+    );
+}
+// For relatively small number of packages (<1000), it's ok to use linear search, even for each dependency.
+// But if it will be perfomanse bottleneck, we can firstly build Map<PackageId, Package> to speed up search.
+fn get_package_by_id<'a>(metadata: &'a Metadata, package_id: &PackageId) -> &'a Package {
+    metadata
+        .packages
+        .iter()
+        .find(|pkg| &pkg.id == package_id)
+        .expect(&format!("Failed to find package by id: {}", package_id))
 }
 
-// Read manifest file and find all entrypoints.
-// Collect them and return as path to src/lib.rs or src/main.rs depending on the project type.
-pub fn get_entrypoints(manifest_path: &Path) -> Vec<PathBuf> {
-    println!("Reading manifest file: {:?}", manifest_path);
-    let manifest = std::fs::read_to_string(manifest_path).unwrap();
-    let manifest: toml::Value = toml::from_str(&manifest).unwrap();
-    let mut result = Vec::new();
-    if let Some(lib) = manifest.get("lib") {
-        if let Some(path) = lib.get("path") {
-            result.push(path.as_str().unwrap().into());
-        }
+// Currently bundler will only support lib and bin targets,
+// and dependency can be only lib
+fn extract_crate_info(package: &Package, is_lib: bool) -> CrateInfo {
+    CrateInfo {
+        name: package.name.clone(),
+        manifest_path: package.manifest_path.clone().into(),
+        entrypoints: package
+            .targets
+            .iter()
+            .filter(|f| {
+                if is_lib {
+                    f.kind.iter().any(|k| k == "lib")
+                } else {
+                    f.kind.iter().any(|k| k == "bin" || k == "lib")
+                }
+            })
+            .map(|t| t.src_path.clone().into())
+            .collect(),
     }
-    if let Some(bin) = manifest.get("bin") {
-        for bin in bin.as_array().unwrap() {
-            if let Some(path) = bin.get("path") {
-                result.push(path.as_str().unwrap().into());
-            }
+}
+// Read manifest file and find all
+// Get list of crates that depend on rcss
+// Returns path to their manifest file
+pub fn get_depend_crate_info_and_options(manifest_path: &Path) -> (Vec<CrateInfo>, BundleOption) {
+    let mut cmd = MetadataCommand::new();
+
+    // panic!("manifest: {}", manifest_path.display());
+    let metadata = cmd
+        .manifest_path(manifest_path)
+        .exec()
+        .expect("Failed to read metadata");
+
+    let (root_package, options) = get_crate_id_by_manifest_path(&metadata, manifest_path);
+    let blacklist = vec!["rcss-leptos", "rcss-layers"];
+    let nodes = &metadata
+        .resolve
+        .as_ref()
+        .expect("Failed to find metadata root resolve graph")
+        .nodes;
+    let deps_ids = &nodes
+        .iter()
+        .find(|n| n.id == root_package)
+        .expect("Failed to find root package dependencies")
+        .dependencies;
+
+    let mut results = vec![extract_crate_info(
+        get_package_by_id(&metadata, &root_package),
+        false,
+    )];
+
+    for dep in deps_ids {
+        let package = get_package_by_id(&metadata, &dep);
+        if blacklist.contains(&package.name.as_str()) {
+            continue;
+        }
+        let dep_on_rcss = package.dependencies.iter().any(|d| d.name == "rcss");
+        if dep_on_rcss {
+            results.push(extract_crate_info(&package, true));
         }
     }
 
-    // Try to check default main.rs and lib.rs entrypoints.
-    let default_paths = vec!["src/main.rs", "src/lib.rs"];
-    let mut path_to_src: PathBuf = manifest_path.into();
-    path_to_src.pop();
-    for path in default_paths {
-        let path = path_to_src.join(path);
-        if path.exists() {
-            result.push(path);
-        }
-    }
-
-    return result;
+    return (results, options);
 }
 
 pub enum WatchMode {
@@ -207,7 +225,8 @@ impl Default for BundleOption {
 #[derive(Debug)]
 pub struct CrateInfo {
     pub name: String,
-    pub path_to_manifest: PathBuf,
+    pub manifest_path: PathBuf,
+    pub entrypoints: Vec<PathBuf>,
 }
 
 pub fn bundle(root_manifest: &Path) -> String {
@@ -220,7 +239,7 @@ pub fn bundle(root_manifest: &Path) -> String {
     let collected_styles = Rc::new(RefCell::new(collect_styles::Collector::new()));
 
     for crate_info in crates {
-        let entrypoints = get_entrypoints(&crate_info.path_to_manifest);
+        let entrypoints = &crate_info.entrypoints;
         for entrypoint in entrypoints {
             println!("Processing entrypoint: {:?}", entrypoint);
             process_styles(&crate_info.name, collected_styles.clone(), &entrypoint);

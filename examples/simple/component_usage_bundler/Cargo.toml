@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 rcss = { workspace = true }
 component_library = { path = "../component_library" }
+log = "0.4"
 
 [build-dependencies]
 rcss-bundler = { workspace = true }

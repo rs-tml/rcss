@@ -1,4 +1,4 @@
-use leptos::{leptos_dom::logging::console_log, *};
+use leptos::*;
 
 rcss::css! {
     @rcss(pub struct Css);

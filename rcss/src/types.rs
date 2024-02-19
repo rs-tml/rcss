@@ -75,6 +75,15 @@ mod static_test {
     impl crate::extend::ScopeChain for CssScope {
         type Parent = Infallible;
         type Root = Self;
+        fn from_root(root: <Self as crate::extend::ScopeChain>::Root) -> Self
+        where
+            Self: Sized,
+        {
+            root
+        }
+        fn into_root(self) -> <Self as crate::extend::ScopeChain>::Root {
+            self
+        }
     }
 
     /// Extension;
@@ -83,7 +92,7 @@ mod static_test {
     impl ScopeExtension {
         pub fn new() -> Self {
             let root = Self::new_root();
-            root.into()
+            Self::from_root(root)
         }
 
         pub const fn new_root() -> <Self as crate::extend::ScopeChain>::Root {
@@ -121,16 +130,14 @@ mod static_test {
     impl crate::extend::ScopeChain for ScopeExtension {
         type Parent = CssScope;
         type Root = <Self::Parent as crate::extend::ScopeChain>::Root;
-    }
-    impl From<ScopeExtension> for <ScopeExtension as crate::extend::ScopeChain>::Root {
-        fn from(v: ScopeExtension) -> Self {
-            v.0.into()
+        fn from_root(root: <Self as crate::extend::ScopeChain>::Root) -> Self
+        where
+            Self: Sized,
+        {
+            Self(root)
         }
-    }
-
-    impl From<<ScopeExtension as crate::extend::ScopeChain>::Root> for ScopeExtension {
-        fn from(v: <ScopeExtension as crate::extend::ScopeChain>::Root) -> Self {
-            Self(v.into())
+        fn into_root(self) -> <Self as crate::extend::ScopeChain>::Root {
+            self.0
         }
     }
 
@@ -140,7 +147,7 @@ mod static_test {
     impl DeepExtension {
         pub fn new() -> Self {
             let root = Self::new_root();
-            root.into()
+            Self::from_root(root)
         }
 
         pub const fn new_root() -> <Self as ScopeChain>::Root {
@@ -178,17 +185,14 @@ mod static_test {
     impl crate::extend::ScopeChain for DeepExtension {
         type Parent = ScopeExtension;
         type Root = <Self::Parent as crate::extend::ScopeChain>::Root;
-    }
-
-    impl From<DeepExtension> for <DeepExtension as crate::extend::ScopeChain>::Root {
-        fn from(v: DeepExtension) -> Self {
-            v.0.into()
+        fn from_root(root: <Self as crate::extend::ScopeChain>::Root) -> Self
+        where
+            Self: Sized,
+        {
+            Self(Self::Parent::from_root(root))
         }
-    }
-
-    impl From<<DeepExtension as crate::extend::ScopeChain>::Root> for DeepExtension {
-        fn from(v: <DeepExtension as crate::extend::ScopeChain>::Root) -> Self {
-            Self(v.into())
+        fn into_root(self) -> <Self as crate::extend::ScopeChain>::Root {
+            self.0.into_root()
         }
     }
 

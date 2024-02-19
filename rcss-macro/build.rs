@@ -109,12 +109,14 @@ fn main() {
     if too_many_roots {
         println!("cargo:warning=More than one rcss-bundler root manifest found.");
         println!(
-            "cargo:warning=Checkout 'cargo tree -i --depth 1 rcss-bundler' to see what caused this issue."
+            "cargo:warning=Checkout 'cargo tree --depth 1 -i rcss-bundler' to see what caused this issue."
         );
         for c in &crates {
             println!("cargo:warning=Root detected at {}", c.display());
         }
-        println!("cargo:warning=Using merged config from all root manifests.");
+        println!(
+            "cargo:warning=Using merged config from all root manifests (CAN CAUSE INCONSISTENCY!)."
+        );
     }
 
     let mut config = Config {

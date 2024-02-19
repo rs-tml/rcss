@@ -10,3 +10,11 @@ members = [
 rcss = { version = "0.2.0", path = "../rcss" }
 rcss-leptos = { version = "0.2.0", path = "../rcss-leptos" }
 rcss-bundler = { version = "0.2.0", path = "../rcss-bundler" }
+# Defines a size-optimized profile for the WASM bundle in release mode
+[profile.wasm-release]
+inherits = "release"
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = true

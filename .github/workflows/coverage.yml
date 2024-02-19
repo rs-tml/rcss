@@ -1,0 +1,33 @@
+name: coverage
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+jobs:
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: coverage main
+        run: |
+            cargo install cargo-tarpaulin
+            cargo tarpaulin --out xml --output-dir ./main --workspace
+
+      - name: coverage examples
+        run: |
+            cd examples
+            cargo tarpaulin --out xml --output-dir ./examples --workspace
+
+      - uses: codecov/codecov-action@v3
+        with:
+            token: ${{ secrets.CODECOV_TOKEN }}
+            files: ./examples/cobertura.xml,./main/cobertura.xml 
+            name: RCSS
