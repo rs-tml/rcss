@@ -2,7 +2,8 @@ use std::{collections::BTreeMap, io::Write};
 
 // We use this as path dependency because we can't use it as crate
 // Since it is depending on rcss which creates circular dependency.
-#[path = "../../../rcss-layers/src/lib.rs"]
+// #[path = "../../../rcss-layers/src/lib.rs"]
+// for now we use symlink instead of path (since cargo publish and rust-analyzer doesn't like it)
 #[allow(unused)]
 pub mod rcss_layers;
 use rcss_layers::{ScopeId, Style};
