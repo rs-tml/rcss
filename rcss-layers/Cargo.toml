@@ -2,7 +2,13 @@
 name = "rcss-layers"
 version = "0.2.0"
 edition = "2021"
-
+description = "Part of Rust CSS embedding library that allows saving styles as seperate layers."
+authors = ["vldm <me@vldm.cc>"]
+keywords = ["css", "html", "rsx", "macro", "parse"]
+repository = "https://github.com/rs-tml/rcss"
+readme = "../README.md"
+license = "MIT OR Apache-2.0"
+include = ["/src", "../LICENSE"]
 
 [dependencies]
 rcss = { workspace = true, optional = true }

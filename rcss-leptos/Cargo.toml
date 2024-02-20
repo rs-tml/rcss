@@ -2,9 +2,13 @@
 name = "rcss-leptos"
 version = "0.2.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
+description = "Rust CSS embedding library integration with leptos framework."
+authors = ["vldm <me@vldm.cc>"]
+keywords = ["css", "html", "rsx", "macro", "parse"]
+repository = "https://github.com/rs-tml/rcss"
+readme = "../README.md"
+license = "MIT OR Apache-2.0"
+include = ["/src", "../LICENSE"]
 [dependencies]
 rcss = { workspace = true }
 rcss-layers = { workspace = true }
