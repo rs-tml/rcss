@@ -1,6 +1,12 @@
 name: ci
 
-on: [push, pull_request]
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
 
 jobs:
   ci:
@@ -35,8 +41,5 @@ jobs:
       - name: clippy
         run: cargo clippy --workspace
 
-      - name: coverage
-        run: |
-          cargo install cargo-tarpaulin
-          cargo tarpaulin --out xml
-          bash <(curl -s https://codecov.io/bash)
+      - name: Test examples
+        run: cd examples && cargo test --workspace

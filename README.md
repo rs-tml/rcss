@@ -1,6 +1,145 @@
-# RCSS - Macro that embeds CSS into Rust app.
+# RCSS - Reusable CSS in the Rust app.
 
-## Motivation: 
+RCSS allows you to write styles directly in Rust code, mostly without quotes.
+
+```rust
+let css = css!{
+    .container {
+        background-color: black;
+    }
+    #id {
+        color: red;
+    }
+    button {
+        border: 1px solid black;
+    }
+};
+assert!(css.container.starts_with("container"));
+```
+
+RCSS uses LightningCSS (browser-grade CSS preprocessors) to parse and generate CSS code.
+It can bundle all CSS into static files, or generate inline CSS content.
+
+It uses an approach similar to css_modules from JS world to expose CSS classes in a type-safe manner. For a selector that doesn't use class names, it uses a scoped-style approach (add a custom class with unique name).
+
+Styles defined with RCSS can be extended and reused in other components.
+
+```rust 
+// Declare a public module name foo;
+css!{
+    @rcss(pub struct Foo);
+
+    .container {
+        color: green;
+        background-color: black;
+    }
+};
+
+// Component define what type of css it needs.
+fn hello_world<C>(css: C) -> String
+C: rcss::ScopeChain<Root = Foo>
+{
+    // use ScopeChain to include style chain. Checkout rcss-layers for details.
+
+    format!(r#"<div class="{}">Hello</div>"#, css.container)
+}
+...
+
+// Extend style from module foo, typecheck that no new classes, ids or types are added.
+let css = css!{
+    @rcss(extend ::path::to::Foo);
+
+    .container {
+        background-color: red;
+    }
+};
+
+let html = hello_world(css);
+```
+To better control cascading and avoid conflicts, RCSS provides crate `rcss-layers` that can save extended styles into CSS `@layer`.
+
+## Usage:
+
+```toml
+[dependencies]
+rcss = "0.2"
+```
+
+RCSS is not focused on any specific web framework, it can be used even without frameworks, just with `format!`, but to make it more convenient, this repository
+will also include integration with popular web frameworks.
+Currently, there is only one integration crate: `rcss-leptos` for [leptos](https://github.com/leptos-rs/leptos)
+
+### Usage with leptos:
+To use rcss with leptos, add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+rcss = "0.2"
+rcss-leptos = "0.2"
+```
+
+then in component, you can use `css!` macro to define styles.
+```rust
+use rcss::css;
+use leptos::*;
+
+#[component]
+fn hello_world() -> Node {
+    let css = css!{
+        .container {
+            background-color: black;
+            color: white;
+        }
+    };
+    rcss_leptos::register_style(css.clone());
+
+    view! {
+        <div class=css.container>Hello</div>
+    }
+}
+```
+More examples can be found in `examples/leptos` directory.
+
+
+## Bundling CSS:
+RCSS can bundle all CSS into a static file.
+To do that one can use `rcss-bundler` crate in build.rs.
+    
+```toml
+[build-dependencies]
+rcss-bundler = "0.2"
+```
+
+```rust
+fn main() {
+    rcss_bundler::bundle_build_rs();
+}
+```
+
+By default, the bundler will save CSS into `$OUT_DIR/styles.css`. However, this can be customized through cargo metadata.
+
+
+```toml
+[package.metadata.rcss]
+output-path = "style/counters.css" # Path to save styles
+disable-styles = false # If set to true will force `rcss-macro` to remove style strings from macro output.
+```
+
+Note: `disable-styles` can be ignored by `rcss-macro` if `rcss-bundler` was added after the first build.
+One can use `cargo clean -p rcss-macro` or `cargo clean -p rcss-macro --target-dir target/front` (in case of cargo-leptos) to force cargo rebuild `rcss-macro`.
+
+## Known issues:
+1. `rcss-bundler` should be used only from one root crate. If you have multiple crates that use `rcss-bundler`, or workspace that share building artifacts of multiple root crates in one target directory - it will cause a conflict with configuring. For example, if one root crate sets `disable-styles=true` and one does not, the `rcss-bundler` will throw a warning and use `disable-styles=false` for all workspace/crates.
+
+2. Currently, CSS parsing errors are not fully integrated with rust diagnostics messages, so if you have invalid CSS syntax it will just throw a generic error, without highlighting the exact place of the error.
+
+3. Unquoted text in macros has a few limitations like it can't contain single quotes `'` or unfinished braces (like `{` or `(`). This is because of the way Rust provides TokenStream to macro.
+
+4. Unquoted text doesn't work well with `em` units and some hex numbers that start with number and has letter `e` (like `#0ed`) because rust parses them as exponential number literals, and expecting a number after `e` instead of a letter "m".
+
+For problems 3-4, one can use interpolation as workaround `#{"3em"}` with quoted text inside.
+
+## Macro implementation details: 
 There are two ways of writing function macros in Rust.
 - One is to handle `TokenStream` from proc-macro.
 This way saves links to the original code, therefore IDE and compiler can show errors linked to the original code, variables can be resolved and so on. But `TokenStream` in Rust is specialized for Rust syntax and it's harder to support foreign syntax in it.
@@ -11,147 +150,7 @@ Check out [rstml::RawText](https://github.com/rs-tml/rstml/blob/main/src/node/ra
 This way is more flexible because you can use any parser you want, but you lose all the benefits of `TokenStream`` and have to write your parser.
 
 Unlike HTML templating where you need some way to mix reactive variables from Rust and templates -
-CSS usually contains static predefined content, which rarely needs to be generated at runtime or compile time.
+CSS usually contains static predefined content, which rarely needs to be generated at runtime.
 Therefore link between the original code and IDE is less important. Instead, most of the users just want to write CSS for their components near its implementation.
 
 So instead of writing a custom parser on top of `proc-macro::TokenStream`, this library tries to convert macro calls into strings and work with convenient CSS preprocessors.
-
-## Info:
-
-RCSS supports various embedding modes:
-- Can preprocess CSS and output struct that work like css_modules.
-- Can output class-name for scoped-style API (this class name should be injected into all elements).
-
-Support multiple backends:
-[stylers](https://github.com/abishekatp/stylers) - a library that provides CSS-like syntax, and is aimed for the `leptos`` framework. Has a smaller dependencies footprint, but slower and less powerful.
-
-- [lightningcss](https://lightningcss.dev/) - library from Parcel, written on top of browser grade `cssparser` - extremely fast and powerful. But has a large dependencies footprint.
-
-- [procss](https://github.com/ProspectiveCo/procss) (in plans) - simple nom-based CSS parser, and preprocessor. Has a small number of dependencies, but works slower than `lightningcss`, and doesn't support all CSS syntax.
-
-Can output inline CSS content or aggregate all CSS into one file (using build.rs).
-Contains various helpers for macro and build.rs writing.
-
-## Usage:
-Lib contains a feature flag for each backend, so you can choose which one to use.
-
-```toml
-[dependencies]
-rcss = { version = "0.1", features = ["lightningcss"] }
-```
-By default "lightningcss" is enabled, but you can avoid using it by setting `default-features = false`.
-This allows for optimized compilation time and reduces dependency's footprint on demand.
-
-All API is divided into modules, and can be represented as a tree:
-```text
---- rcss
-    |- inline  (api that return css as string in second output params)
-    |   |- css_modules 
-    |   |- scoped
-    |- file  (api that doesn't return css as string, but provide a way to agregate them into file using build.rs)
-        |- css_modules
-        |- scoped
-```
-Macros in this library can't be used from other macros, because they need access to source code.
-Macros in `file` should be used in pair with build.rs helper. 
-
-Scoped CSS is inspired by Vue, other js frameworks and Shadow DOM, in vue it uses custom attributes and CSS preprocessors in order to scope CSS rules.
-Our approach uses class names, that should be attached to each styled html element.
-It can be automatically injected by a framework, or manually by the user.
-Scoped API contains a single macro `css!` that can be used to generate scoped CSS class names.
-It returns a tuple of `(css_class, inline_css)` on inline API and `(css_class)` on file API.
-`css_class` is a string that should be injected into each styled html element.
-`inline_css` is a string that should be injected to `<style>` or in another way delivered to the client as CSS content.
-
-`css_modules` is familiar for js developers, it dynamically changes each class-name, and provides a single object with original class names as fields, and new class names as values.
-The same approach is applied in Rust, but instead of an object, it returns a newly generated struct.
-Css modules API contains two macros `css!` and `css_struct!` (`css_mod!` for inline API).
-`css!` macro works in a similar way as scoped API, but instead of `class_name` it returns struct which fields can be used to style HTML elements.
- `css_struct!` is used to define CSS struct in a global context.
-
-The rest of the config specific to each backend, is planned to be configured through environment variables.
-
-## Examples: 
-
-RCSS can be used without frameworks at all, for example using scoped-style API:
-```rust
-use rcss::inline::scoped::css;
-
-fn main() {
-    let (css_class, style) = css!{
-        .container {
-            background-color: black;
-        }
-    };
-    
-    let html = format!(r#"<div class="{} my-class">Hello</div>"#, css_class);
-    let html = format!(r#"<style>{}</style>{}"#, style, html);
-    // output html.
-}
-
-```
-
-It's easy to use it with any framework,
-example for `leptos` framework, using `css_modules` API:
-
-```rust
-
-use leptos::prelude::*;
-use rcss::inline::css_modules::css;
-
-#[component]
-fn some_component() -> impl View {
-    let (css_class, inline_css) = css!{
-        .container {
-            background-color: black;
-        }
-    };
-    
-    view! {
-        <div class={css_class.container}>
-            Hello
-        </div>
-        <style>
-            {inline_css}
-        </style>
-
-    }
-}
-
-```
-
-Leptos also supports scoped-style API through class injecting, so a more complex example using scoped-API can be written as:
-
-build.rs:
-```rust
-use rcss::builer_helper::process_styles_to_file;
-fn main () {
-    let project_path = std::env!("CARGO_MANIFEST_DIR");
-    let output = format!("{}/target/styles.rs", project_path);
-    process_styles_to_file(project_path, output);
-}
-```
-
-component.rs:
-```rust
-use leptos::prelude::*;
-use rcss::file::scoped::css;
-
-#[component]
-fn some_component() -> impl View {
-    let css_class = css!{
-        .container {
-            background-color: black;
-        }
-    };
-    
-    view! {
-        <div class={css_class}>
-            Hello
-        </div>
-
-    }
-}
-
-```
-

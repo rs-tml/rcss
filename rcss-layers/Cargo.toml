@@ -1,0 +1,12 @@
+[package]
+name = "rcss-layers"
+version = "0.2.0"
+edition = "2021"
+
+
+[dependencies]
+rcss = { workspace = true, optional = true }
+
+[features]
+default = ["rcss_enable"]
+rcss_enable = ["dep:rcss"]

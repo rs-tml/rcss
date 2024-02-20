@@ -35,7 +35,7 @@ fn main () {
     let crate_name = std::env::var("CARGO_CRATE_NAME").unwrap_or("rcss".to_owned());
     let collect_style = RefCell::new(String::new());
 
-    let mut css_handler = |token_stream: TokenStream| {
+    let mut css_handler = |context, token_stream: TokenStream| {
        collect_style.borrow_mut().push_str(/* Handle token_stream */ )
     };
 
@@ -52,6 +52,6 @@ fn main () {
 ```
 
 `macro-visit` will find all occurrences of `css!` macro, even if it was renamed.
-Currently, it only looks for imports inside one file at a time, and does not parallelize file processing.
+Currently, it only looks for imports inside one file at a time and does not parallelize file processing.
 
 

@@ -1,0 +1,18 @@
+[package]
+name = "component_usage_bundler"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rcss = { workspace = true }
+component_library = { path = "../component_library" }
+log = "0.4"
+
+[build-dependencies]
+rcss-bundler = { workspace = true }
+
+[package.metadata.rcss]
+output-path = "styles/style.css"
+disable-styles = true

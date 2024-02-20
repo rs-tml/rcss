@@ -1,6 +1,6 @@
 [package]
 name = "macro-visit"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Function like proc-macro visitor for build.rs"
 authors = ["vldm <me@vldm.cc>"]
@@ -16,5 +16,3 @@ include = ["/src", "../LICENSE"]
 [dependencies]
 syn = { workspace = true }
 proc-macro2 = { workspace = true }
-
-glob = { version = "0.3.0" }

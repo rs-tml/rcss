@@ -1,11 +1,10 @@
-///
-/// Fallback parser specifically for IDEs and css_modules api.
-/// Collect all classes (dot prefixed identifiers).
-///
-/// Outputs CssOutput with all classes and empty css strings and uniq class name.
-/// CssOutput can be used to generate css module ot atleast provide argument macro output types.
-///
-/// Can generate false positives when property or at-rule arguments receive some dot prefixed identifiers.
+//!
+//! Fallback parser specifically for IDEs and css_modules api.
+//! Collect all classes (in reallity any dot prefixed identifiers, and some dash expressions).
+//!
+//! Outputs CssOutput with all classes and empty css strings and uniq class name.
+//!
+//! Can generate false positives when property or at-rule arguments receive some dot prefixed identifiers.
 use proc_macro2::{TokenStream, TokenTree};
 use rcss_core::{ClassInfo, CssOutput};
 
@@ -18,9 +17,12 @@ pub fn parse(input: TokenStream) -> CssOutput {
     }
     parse_inner(input)
 }
+
 fn parse_inner(input: TokenStream) -> CssOutput {
     let mut stack = vec![input];
     let mut classes = Vec::new();
+    let mut declare = None;
+    let mut extends = None;
     while let Some(input) = stack.pop() {
         let mut tokens = input.into_iter().peekable();
         while let Some(token) = tokens.next() {
@@ -34,32 +36,61 @@ fn parse_inner(input: TokenStream) -> CssOutput {
                     continue;
                 }
             };
-
-            if punct.as_char() != '.'
-                && matches!(
-                    tokens.peek(),
-                    Some(TokenTree::Ident(_)) | Some(TokenTree::Literal(_)) // ignore numbers with dot prefixed.
-                )
-            {
+            match punct.as_char() {
+                '.' => {
+                    // process later
+                }
+                '@' => {
+                    // at rule
+                    let Some(rcss_rule) = crate::helpers::parse_rcss_config(&mut tokens) else {
+                        continue;
+                    };
+                    match rcss_rule {
+                        rcss_core::rcss_at_rule::RcssAtRuleConfig::Struct(item_struct) => {
+                            declare = Some(item_struct)
+                        }
+                        rcss_core::rcss_at_rule::RcssAtRuleConfig::Extend(path) => {
+                            extends = Some(path)
+                        }
+                    }
+                    continue;
+                }
+                _ => {
+                    continue;
+                }
+            }
+            // ignore literals after dot (prevent parsing something like .32);
+            if let Some(TokenTree::Literal(_)) = tokens.peek() {
                 continue;
             }
+
             let mut ident = Vec::new();
             'collect_ident_fragments: loop {
                 match tokens.next() {
                     Some(tt @ TokenTree::Ident(_)) => {
                         ident.push(tt);
-                        if let Some(TokenTree::Ident(_)) = tokens.peek() {
+
+                        // Only ident followed by dash is allowed
+                        if let Some(TokenTree::Punct(_)) = tokens.peek() {
+                        }
+                        // Ident followed by ident or literal has space between
+                        else {
                             break 'collect_ident_fragments;
                         }
                     }
                     Some(TokenTree::Literal(l)) => {
                         let str_lit = l.to_string();
+                        // No strings is allowed in class names
                         if str_lit.starts_with('"') || str_lit.ends_with('\'') {
                             break 'collect_ident_fragments;
                         }
                         ident.push(TokenTree::Literal(l));
 
-                        if let Some(TokenTree::Ident(_)) = tokens.peek() {
+                        // Only literals followed by dash is allowed
+                        if let Some(TokenTree::Punct(_)) = tokens.peek() {
+                        }
+                        // Ident followed by ident or literal has space between
+                        else {
                             break 'collect_ident_fragments;
                         }
                     }
@@ -87,6 +118,8 @@ fn parse_inner(input: TokenStream) -> CssOutput {
     let output = CssOutput::create_from_fields(
         String::from(""),
         String::from(""),
+        declare,
+        extends,
         classes
             .into_iter()
             .map(|ident| {
@@ -113,6 +146,8 @@ fn parse_inner(input: TokenStream) -> CssOutput {
 
 #[cfg(test)]
 mod test {
+    use quote::ToTokens;
+
     // check different idents
     #[test]
     fn check_parse() {
@@ -173,5 +208,40 @@ mod test {
         let mut expected_list = vec!["my-class", "my-class2"];
         expected_list.sort();
         assert_eq!(elements_list, expected_list);
+    }
+
+    #[test]
+    fn ignore_dotted_num() {
+        let input = r#"
+        .my-class {
+            width: .32;
+        }
+        "#;
+        let output = super::parse_inner(input.parse().unwrap());
+        let elements_list = output.classes_list().collect::<Vec<_>>();
+        let expected_list = vec!["my-class"];
+
+        assert_eq!(elements_list, expected_list);
+    }
+
+    #[test]
+    fn mod_declare_and_extend_parse() {
+        let input = r#"
+        @rcss(pub struct MyStruct);
+        @rcss(extend ::path::to::MyStruct);
+        .my-class {
+            color: red;
+        }
+        "#;
+        let output = super::parse_inner(input.parse().unwrap());
+        let elements_list = output.classes_list().collect::<Vec<_>>();
+        let mut expected_list = vec!["my-class"];
+        expected_list.sort();
+        assert_eq!(elements_list, expected_list);
+        assert_eq!(output.declare().unwrap().ident.to_string(), "MyStruct");
+        assert_eq!(
+            output.extend().unwrap().to_token_stream().to_string(),
+            ":: path :: to :: MyStruct"
+        );
     }
 }

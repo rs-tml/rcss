@@ -1,0 +1,13 @@
+[package]
+name = "rcss-leptos"
+version = "0.2.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rcss = { workspace = true }
+rcss-layers = { workspace = true }
+
+leptos = "0.6.0"
+leptos_meta = "0.6.0"

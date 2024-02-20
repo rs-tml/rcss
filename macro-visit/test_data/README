@@ -1,0 +1,13 @@
+This dir is a test files for macro-visit project.
+It is used to check how `macro-visit` resolves different cases of `use` imports and `mod` declarations.
+
+
+TODO:
+- [x] Add `use as` tests
+- [x] Add `#[path]` tests
+- [] Add `use crate::FOO` tests
+- [x] Add `use super::FOO` tests
+- [] Add `use ::FOO` tests
+- [] Add `use *` tests
+- [] Order of `use` and `mod` declarations should not matter
+- [] use log instead of `println`

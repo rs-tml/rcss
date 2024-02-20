@@ -1,7 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use quote::spanned::Spanned;
-#[cfg(not(all(feature = "stylers", feature = "lightningcss")))]
-compile_error!("You should enable stylers or lightningcss to use benchmarks");
 
 fn backends_benchmark(c: &mut Criterion) {
     // style from stylers github README
@@ -57,25 +55,10 @@ fn backends_benchmark(c: &mut Criterion) {
             }
         }
     "##;
-    // Stylers backend
-    c.bench_function("stylers", |iter| {
-        iter.iter(|| {
-            let _ = rcss_core::CssProcessor::new(
-                rcss_core::CssPreprocessor::StylersCore,
-                rcss_core::CssEmbeding::Scoped,
-            )
-            .process_style(black_box(css_from));
-        })
-    });
+
     // lightningcss backend
     c.bench_function("lightningcss", |iter| {
-        iter.iter(|| {
-            let _ = rcss_core::CssProcessor::new(
-                rcss_core::CssPreprocessor::LightningCss,
-                rcss_core::CssEmbeding::Scoped,
-            )
-            .process_style(black_box(css_from));
-        })
+        iter.iter(|| rcss_core::CssProcessor::process_style(black_box(css_from)))
     });
 
     // lightningcss with source_text recovered from preparsed tokenstream
@@ -83,40 +66,8 @@ fn backends_benchmark(c: &mut Criterion) {
         iter.iter(|| {
             let tt: proc_macro2::TokenStream = black_box(css_from.parse().unwrap());
             let css_from = tt.__span().source_text().unwrap();
-            let _ = rcss_core::CssProcessor::new(
-                rcss_core::CssPreprocessor::StylersCore,
-                rcss_core::CssEmbeding::Scoped,
-            )
-            .process_style(black_box(&css_from));
-        })
-    });
-    // stylers with source_text recovered from preparsed tokenstream
-    c.bench_function("stylers_source_text", |iter| {
-        iter.iter(|| {
-            let tt: proc_macro2::TokenStream = black_box(css_from.parse().unwrap());
-            let class = stylers_core::Class::new("test".to_owned());
-            let css_from = tt.__span().source_text().unwrap();
-            _ = stylers_core::from_str(&css_from, &class);
-        })
-    });
-    // stylers (within backend) and source text recovered from preparsed tokenstream
-    c.bench_function("stylers_source_text_backend", |iter| {
-        iter.iter(|| {
-            let tt: proc_macro2::TokenStream = black_box(css_from.parse().unwrap());
-            let css_from = tt.__span().source_text().unwrap();
-            let _ = rcss_core::CssProcessor::new(
-                rcss_core::CssPreprocessor::StylersCore,
-                rcss_core::CssEmbeding::Scoped,
-            )
-            .process_style(black_box(&css_from));
-        })
-    });
-    // stylers tokenstream version that tries to recover spaces
-    c.bench_function("stylers_tokenstream", |iter| {
-        iter.iter(|| {
-            let tt: proc_macro2::TokenStream = black_box(css_from.parse().unwrap());
-            let class = stylers_core::Class::new("test".to_owned());
-            _ = stylers_core::from_ts(tt.into_iter(), &class, false);
+
+            rcss_core::CssProcessor::process_style(black_box(&css_from))
         })
     });
 }
