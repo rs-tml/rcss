@@ -19,11 +19,11 @@ jobs:
 
       - name: Install cargo-expand for tests
         run: cargo install cargo-expand
-        
+
       - name: coverage main
         run: |
             cargo install cargo-tarpaulin
-            cargo tarpaulin --out xml --output-dir ./main --workspace
+            cargo tarpaulin --out xml --output-dir ./main --workspace --exclude build_rs_test
 
       - name: coverage examples
         run: |

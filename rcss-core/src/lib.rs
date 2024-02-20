@@ -39,8 +39,11 @@ impl<'src> CssProcessor<'src> {
         };
         Ok(this)
     }
-    pub fn process_style(style: &'src str) -> Result<CssOutput> {
-        let mut this = Self::new(style)?;
+    pub fn process_style(style: &str) -> Result<CssOutput> {
+        // Hide interpolation for now
+        let (interpolate, result) = crate::interpolate::handle_interpolate(&style);
+        let style = interpolate.unwrap_literals(result.as_ref());
+        let mut this = CssProcessor::new(&style)?;
         this.process_style_inner()
     }
 
