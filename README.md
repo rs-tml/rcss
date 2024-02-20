@@ -103,10 +103,20 @@ More examples can be found in `examples/leptos` directory.
 
 ## Bundling CSS:
 RCSS can bundle all CSS into a static file.
-In order to do that one can use `rcss-bundler` crate in build.rs.
+To do that one can use `rcss-bundler` crate in build.rs.
+    
+```toml
+[build-dependencies]
+rcss-bundler = "0.2"
+```
 
+```rust
+fn main() {
+    rcss_bundler::bundle_build_rs();
+}
+```
 
-By default, it saves CSS into `$OUT_DIR/styles.css`. However, this can be customized through cargo metadata.
+By default, the bundler will save CSS into `$OUT_DIR/styles.css`. However, this can be customized through cargo metadata.
 
 
 ```toml
@@ -115,9 +125,19 @@ output-path = "style/counters.css" # Path to save styles
 disable-styles = false # If set to true will force `rcss-macro` to remove style strings from macro output.
 ```
 
-
 Note: `disable-styles` can be ignored by `rcss-macro` if `rcss-bundler` was added after the first build.
 One can use `cargo clean -p rcss-macro` or `cargo clean -p rcss-macro --target-dir target/front` (in case of cargo-leptos) to force cargo rebuild `rcss-macro`.
+
+## Known issues:
+1. `rcss-bundler` should be used only from one root crate. If you have multiple crates that use `rcss-bundler`, or workspace that share building artifacts of multiple root crates in one target directory - it will cause a conflict with configuring. For example, if one root crate sets `disable-styles=true` and one does not, the `rcss-bundler` will throw a warning and use `disable-styles=false` for all workspace/crates.
+
+2. Currently, CSS parsing errors are not fully integrated with rust diagnostics messages, so if you have invalid CSS syntax it will just throw a generic error, without highlighting the exact place of the error.
+
+3. Unquoted text in macros has a few limitations like it can't contain single quotes `'` or unfinished braces (like `{` or `(`). This is because of the way Rust provides TokenStream to macro.
+
+4. Unquoted text doesn't work well with `em` units and some hex numbers that start with number and has letter `e` (like `#0ed`) because rust parses them as exponential number literals, and expecting a number after `e` instead of a letter "m".
+
+For problems 3-4, one can use interpolation as workaround `#{"3em"}` with quoted text inside.
 
 ## Macro implementation details: 
 There are two ways of writing function macros in Rust.
@@ -134,6 +154,3 @@ CSS usually contains static predefined content, which rarely needs to be generat
 Therefore link between the original code and IDE is less important. Instead, most of the users just want to write CSS for their components near its implementation.
 
 So instead of writing a custom parser on top of `proc-macro::TokenStream`, this library tries to convert macro calls into strings and work with convenient CSS preprocessors.
-
-
-TODO: Check usage of bundler in workspace.

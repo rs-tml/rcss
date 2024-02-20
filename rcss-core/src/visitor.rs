@@ -47,12 +47,15 @@ impl SelectorState {
     }
 }
 
+type GenericParseError = lightningcss::error::Error<lightningcss::error::ParserError<'static>>;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Failed to print token as css")]
     PrintFailed(#[from] lightningcss::error::PrinterError),
-    #[error("Failed to parse token as css selector")]
-    ParseError(String),
+    #[error("Failed to parse token as css selector: {0}")]
+    ParseSelectorError(String),
+    #[error("Failed to parse tokens in css: {0}")]
+    GenericParser(#[from] GenericParseError),
     #[error("Not allowed token in selector list: {0}")]
     NotAllowedToken(String),
 }
@@ -90,7 +93,7 @@ impl SelectorVisitor {
             }
         }
         let selector = Selector::parse_string_with_options(&result, ParserOptions::default())
-            .map_err(|e| Error::ParseError(format!("{:?}", e)))?;
+            .map_err(|e| Error::ParseSelectorError(format!("{}", e)))?;
         use lightningcss::traits::IntoOwned;
 
         Ok(selector.into_owned())

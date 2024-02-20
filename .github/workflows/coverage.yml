@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - master
+      
 jobs:
   coverage:
     name: coverage
@@ -16,6 +17,9 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@nightly
 
+      - name: Install cargo-expand for tests
+        run: cargo install cargo-expand
+        
       - name: coverage main
         run: |
             cargo install cargo-tarpaulin

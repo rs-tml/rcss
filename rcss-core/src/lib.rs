@@ -15,6 +15,7 @@ use rcss_at_rule::{RcssAtRuleConfig, RcssAtRuleParser};
 pub mod rcss_at_rule;
 pub mod visitor;
 pub use visitor::Error;
+pub mod interpolate;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -34,7 +35,7 @@ impl<'src> CssProcessor<'src> {
                 ParserOptions::default(),
                 &mut RcssAtRuleParser,
             )
-            .map_err(|e| Error::ParseError(format!("{:?}", e)))?,
+            .map_err(|e| e.into_owned())?,
         };
         Ok(this)
     }
